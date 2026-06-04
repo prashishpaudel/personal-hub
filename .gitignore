@@ -22,3 +22,9 @@ next-env.d.ts
 
 # vercel
 .vercel
+
+# generated garden assets (copied from content/ at build)
+/public/garden-assets
+
+# Obsidian workspace config (vault content itself IS tracked)
+/content/.obsidian
