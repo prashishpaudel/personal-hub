@@ -7,23 +7,26 @@ import {
   Loader2,
   Newspaper,
   Settings2,
+  ListFilter,
+  Bookmark,
+  BookmarkCheck,
+  X,
+  Search,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { categories, type Category } from "@/lib/sources";
 import { sanitizeHtml } from "@/lib/sanitize";
 import ManageSources from "@/components/ManageSources";
-
-type FeedItem = {
-  title: string;
-  link: string;
-  date: string;
-  source: string;
-  sourceDomain: string;
-  category: string;
-  summary: string;
-  fullContent: string | null;
-  image: string | null;
-};
+import {
+  type FeedItem,
+  getFeedCache,
+  setFeedCache,
+  getFeedUI,
+  setFeedUI,
+  getCachedArticle,
+  setCachedArticle,
+  loadFavs,
+  saveFavs,
+} from "@/lib/feedStore";
 
 function timeAgo(date: string): string {
   const diff = Date.now() - new Date(date).getTime();
@@ -39,54 +42,96 @@ function timeAgo(date: string): string {
   );
 }
 
+function Favicon({ domain }: { domain: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+      alt=""
+      width={16}
+      height={16}
+      className="h-4 w-4 shrink-0 rounded"
+    />
+  );
+}
+
 export default function FeedPage() {
   const [items, setItems] = useState<FeedItem[]>([]);
   const [status, setStatus] = useState<"loading" | "idle" | "error">("loading");
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState<Category | "All">("All");
+  const [filter, setFilter] = useState<string>("All");
+  const [source, setSource] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<FeedItem | null>(null);
   const [fetchedContent, setFetchedContent] = useState<string | null>(null);
   const [fetchingArticle, setFetchingArticle] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"list" | "reader">("list");
   const [manageOpen, setManageOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [favs, setFavs] = useState<Set<string>>(new Set());
 
   const loadFeed = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
-    else setStatus("loading");
     try {
       const res = await fetch(refresh ? "/api/feed?fresh=1" : "/api/feed");
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
-      setItems(json.items ?? []);
+      const next: FeedItem[] = json.items ?? [];
+      setItems(next);
+      setFeedCache(next);
       setStatus("idle");
     } catch {
-      setStatus("error");
+      setStatus((s) => (s === "loading" ? "error" : s));
     } finally {
       setRefreshing(false);
     }
   }, []);
 
+  // Mount: restore from the client cache instantly; only fetch if missing/stale.
   useEffect(() => {
-    loadFeed();
-  }, [loadFeed]);
+    setFavs(loadFavs());
+    const ui = getFeedUI();
+    setFilter(ui.filter);
+    setSource(ui.source);
 
-  const filtered = useMemo(
-    () => (filter === "All" ? items : items.filter((i) => i.category === filter)),
-    [items, filter]
-  );
+    const cached = getFeedCache();
+    if (cached) {
+      setItems(cached.items);
+      setStatus("idle");
+      if (ui.selectedLink) {
+        const item = cached.items.find((i) => i.link === ui.selectedLink) ?? null;
+        if (item) {
+          setSelected(item);
+          const art = getCachedArticle(item.link);
+          if (art) setFetchedContent(art);
+        }
+      }
+      if (!cached.fresh) loadFeed(true); // background refresh
+    } else {
+      loadFeed();
+    }
+  }, [loadFeed]);
 
   const openArticle = useCallback(async (item: FeedItem) => {
     setSelected(item);
-    setFetchedContent(null);
+    setFeedUI({ selectedLink: item.link });
     setFetchError(null);
     setMobileView("reader");
+
+    const cached = getCachedArticle(item.link);
+    if (cached) {
+      setFetchedContent(cached);
+      return;
+    }
+    setFetchedContent(null);
     setFetchingArticle(true);
     try {
       const res = await fetch(`/api/article?url=${encodeURIComponent(item.link)}`);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
       setFetchedContent(json.content);
+      setCachedArticle(item.link, json.content);
     } catch (err) {
       setFetchError(err instanceof Error ? err.message : "Failed to load article");
     } finally {
@@ -94,65 +139,226 @@ export default function FeedPage() {
     }
   }, []);
 
+  function pickCategory(cat: string) {
+    setFilter(cat);
+    setSource(null);
+    setFeedUI({ filter: cat, source: null });
+    setDrawerOpen(false);
+  }
+
+  function pickSource(src: string) {
+    setSource(src);
+    setFilter("All");
+    setFeedUI({ filter: "All", source: src });
+    setDrawerOpen(false);
+  }
+
+  function toggleFav(link: string) {
+    setFavs((cur) => {
+      const next = new Set(cur);
+      if (next.has(link)) next.delete(link);
+      else next.add(link);
+      saveFavs(next);
+      return next;
+    });
+  }
+
+  const categories = useMemo(
+    () => ["All", ...Array.from(new Set(items.map((i) => i.category))).sort()],
+    [items]
+  );
+
+  const sources = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const i of items) if (!map.has(i.source)) map.set(i.source, i.sourceDomain);
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [items]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return items.filter((item) => {
+      if (filter === "Saved") {
+        if (!favs.has(item.link)) return false;
+      } else if (filter !== "All" && item.category !== filter) {
+        return false;
+      }
+      if (source && item.source !== source) return false;
+      if (q && !`${item.title} ${item.summary} ${item.source}`.toLowerCase().includes(q))
+        return false;
+      return true;
+    });
+  }, [items, filter, source, search, favs]);
+
+  const activeLabel = source ?? (filter === "All" ? "All sources" : filter);
+
+  const sidebar = (
+    <div className="flex h-full flex-col">
+      <div className="flex-1 space-y-5 overflow-y-auto p-3">
+        <div>
+          <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-widest text-text-faint">
+            Library
+          </p>
+          <button
+            onClick={() => pickCategory("Saved")}
+            className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm transition-colors ${
+              filter === "Saved"
+                ? "bg-accent-soft text-accent-text"
+                : "text-text-muted hover:bg-bg-sunken hover:text-text"
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <Bookmark size={16} /> Saved
+            </span>
+            {favs.size > 0 && (
+              <span className="text-[11px] tabular-nums text-text-faint">
+                {favs.size}
+              </span>
+            )}
+          </button>
+        </div>
+
+        <div>
+          <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-widest text-text-faint">
+            Category
+          </p>
+          <div className="space-y-0.5">
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => pickCategory(cat)}
+                className={`w-full rounded-lg px-2 py-1.5 text-left text-sm transition-colors ${
+                  !source && filter === cat
+                    ? "bg-accent-soft text-accent-text"
+                    : "text-text-muted hover:bg-bg-sunken hover:text-text"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-widest text-text-faint">
+            Sources
+          </p>
+          <div className="space-y-0.5">
+            {sources.map(([name, domain]) => (
+              <button
+                key={name}
+                onClick={() => pickSource(name)}
+                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors ${
+                  source === name
+                    ? "bg-accent-soft text-accent-text"
+                    : "text-text-muted hover:bg-bg-sunken hover:text-text"
+                }`}
+              >
+                <Favicon domain={domain} />
+                <span className="truncate">{name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between border-t border-border p-3">
+        <button
+          onClick={() => setManageOpen(true)}
+          className="flex items-center gap-1.5 text-xs font-medium text-text-muted hover:text-text"
+        >
+          <Settings2 size={15} /> Manage
+        </button>
+        <button
+          onClick={() => loadFeed(true)}
+          aria-label="Refresh"
+          className="text-text-muted hover:text-text"
+        >
+          <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} />
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex h-[calc(100dvh-6.5rem)] gap-4 md:h-[calc(100dvh-4.5rem)]">
+      {/* Sources sidebar — desktop */}
+      <aside className="hidden w-48 shrink-0 rounded-2xl border border-border bg-bg-elevated lg:block">
+        {sidebar}
+      </aside>
+
+      {/* Mobile / tablet drawer */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <button
+            aria-label="Close"
+            onClick={() => setDrawerOpen(false)}
+            className="absolute inset-0 bg-black/40"
+          />
+          <div className="absolute left-0 top-0 h-full w-64 border-r border-border bg-bg-elevated">
+            <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
+              <span className="text-sm font-semibold">Filters</span>
+              <button onClick={() => setDrawerOpen(false)} aria-label="Close">
+                <X size={18} className="text-text-muted" />
+              </button>
+            </div>
+            <div className="h-[calc(100%-46px)]">{sidebar}</div>
+          </div>
+        </div>
+      )}
+
       {/* List pane */}
       <aside
         className={`${
           mobileView === "reader" ? "hidden" : "flex"
         } w-full flex-col gap-3 md:flex md:w-80 md:shrink-0`}
       >
-        <div className="flex items-center justify-between">
-          <h1 className="font-display text-2xl font-semibold tracking-tight">Feed</h1>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setManageOpen(true)}
-              aria-label="Manage feeds"
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-text-muted hover:bg-bg-sunken"
-            >
-              <Settings2 size={16} />
-            </button>
-            <button
-              onClick={() => loadFeed(true)}
-              aria-label="Refresh"
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-text-muted hover:bg-bg-sunken"
-            >
-              <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
-            </button>
-          </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setDrawerOpen(true)}
+            aria-label="Filters"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-text-muted hover:bg-bg-sunken lg:hidden"
+          >
+            <ListFilter size={16} />
+          </button>
+          <h1 className="flex-1 truncate font-display text-xl font-semibold tracking-tight">
+            {activeLabel}
+          </h1>
+          <button
+            onClick={() => loadFeed(true)}
+            aria-label="Refresh"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-text-muted hover:bg-bg-sunken lg:hidden"
+          >
+            <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+          </button>
         </div>
 
-        <div className="flex flex-wrap gap-1.5">
-          {(["All", ...categories] as const).map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setFilter(cat)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                filter === cat
-                  ? "bg-accent text-white"
-                  : "bg-bg-sunken text-text-muted hover:text-text"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
+        <label className="flex items-center gap-2 rounded-xl border border-border bg-bg-elevated px-3 py-2 focus-within:border-border-strong">
+          <Search size={15} className="text-text-faint" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search"
+            className="w-full bg-transparent text-sm outline-none placeholder:text-text-faint"
+          />
+        </label>
 
         <div className="flex-1 space-y-1 overflow-y-auto pr-1">
-          {status === "loading" && (
+          {status === "loading" ? (
             <div className="flex items-center justify-center gap-2 py-10 text-sm text-text-muted">
               <Loader2 size={16} className="animate-spin" /> Loading feeds
             </div>
-          )}
-          {status === "error" && (
+          ) : status === "error" ? (
             <p className="px-3 py-10 text-center text-sm text-text-muted">
               Couldn&apos;t load feeds.{" "}
               <button onClick={() => loadFeed()} className="text-accent-text underline">
                 Retry
               </button>
             </p>
-          )}
-          {status === "idle" &&
+          ) : filtered.length === 0 ? (
+            <p className="px-3 py-10 text-center text-sm text-text-muted">
+              {filter === "Saved" ? "No saved articles yet." : "Nothing here."}
+            </p>
+          ) : (
             filtered.map((item, i) => (
               <button
                 key={`${item.link}-${i}`}
@@ -165,6 +371,7 @@ export default function FeedPage() {
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 text-[11px] text-text-faint">
+                    <Favicon domain={item.sourceDomain} />
                     <span className="truncate font-medium text-text-muted">
                       {item.source}
                     </span>
@@ -188,7 +395,8 @@ export default function FeedPage() {
                   />
                 )}
               </button>
-            ))}
+            ))
+          )}
         </div>
       </aside>
 
@@ -205,19 +413,32 @@ export default function FeedPage() {
                 onClick={() => setMobileView("list")}
                 className="flex items-center gap-1 text-sm text-text-muted md:hidden"
               >
-                <ChevronLeft size={18} /> Feed
+                <ChevronLeft size={18} /> Back
               </button>
               <span className="hidden truncate text-xs text-text-muted md:block">
                 {selected.source}
               </span>
-              <a
-                href={selected.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-xs font-medium text-text-muted hover:text-accent-text"
-              >
-                Original <ExternalLink size={14} />
-              </a>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => toggleFav(selected.link)}
+                  aria-label="Save"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-bg-sunken hover:text-accent-text"
+                >
+                  {favs.has(selected.link) ? (
+                    <BookmarkCheck size={16} className="text-accent-text" />
+                  ) : (
+                    <Bookmark size={16} />
+                  )}
+                </button>
+                <a
+                  href={selected.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-text-muted hover:text-accent-text"
+                >
+                  Original <ExternalLink size={14} />
+                </a>
+              </div>
             </header>
 
             <div className="flex-1 overflow-y-auto px-5 py-6 md:px-8">

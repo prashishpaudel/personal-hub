@@ -4,24 +4,33 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Rss } from "lucide-react";
 import { timeAgo } from "@/lib/time";
+import { getFeedCache, setFeedCache, type FeedItem } from "@/lib/feedStore";
 import WidgetCard from "./WidgetCard";
 
-type Item = { title: string; link: string; source: string; date: string };
-
 export default function FeedHighlights() {
-  const [items, setItems] = useState<Item[]>([]);
+  const [items, setItems] = useState<FeedItem[]>([]);
   const [status, setStatus] = useState<"loading" | "idle" | "error">("loading");
 
   useEffect(() => {
+    // Reuse the shared feed cache so the dashboard and /feed don't refetch
+    // each other; only hit the network when the cache is missing/stale.
+    const cached = getFeedCache();
+    if (cached) {
+      setItems(cached.items.slice(0, 6));
+      setStatus("idle");
+      if (cached.fresh) return;
+    }
     async function load() {
       try {
         const res = await fetch("/api/feed");
         const json = await res.json();
         if (!res.ok) throw new Error();
-        setItems((json.items ?? []).slice(0, 6));
+        const next: FeedItem[] = json.items ?? [];
+        setFeedCache(next);
+        setItems(next.slice(0, 6));
         setStatus("idle");
       } catch {
-        setStatus("error");
+        setStatus((s) => (s === "loading" ? "error" : s));
       }
     }
     load();
