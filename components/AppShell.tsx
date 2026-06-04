@@ -3,10 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LogOut, Moon, Sun } from "lucide-react";
+import {
+  LogOut,
+  Moon,
+  Sun,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from "lucide-react";
 import { navItems } from "@/lib/nav";
 
 const themeKey = "personal-hub:theme";
+const railKey = "personal-hub:rail-collapsed";
 
 function isActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
@@ -23,6 +30,7 @@ export default function AppShell({
   const pathname = usePathname();
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [mounted, setMounted] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(themeKey) as
@@ -34,6 +42,7 @@ export default function AppShell({
     } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
       setTheme("dark");
     }
+    setCollapsed(window.localStorage.getItem(railKey) !== "0");
     setMounted(true);
   }, []);
 
@@ -42,18 +51,36 @@ export default function AppShell({
     if (mounted) window.localStorage.setItem(themeKey, theme);
   }, [theme, mounted]);
 
+  function toggleRail() {
+    setCollapsed((c) => {
+      const next = !c;
+      window.localStorage.setItem(railKey, next ? "1" : "0");
+      return next;
+    });
+  }
+
+  // Shared classes for the footer action buttons (theme / sign out / toggle).
+  const actionBtn = `flex items-center gap-3 rounded-xl py-2.5 text-text-muted transition-colors hover:bg-bg-sunken hover:text-text ${
+    collapsed ? "justify-center" : "justify-start px-3"
+  }`;
+  const label = collapsed ? "hidden" : "inline";
+
   return (
     <div className="min-h-dvh">
       {/* Desktop side rail */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[68px] flex-col items-center border-r border-border bg-bg-elevated py-5 md:flex lg:w-60 lg:items-stretch lg:px-3">
+      <aside
+        className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-border bg-bg-elevated py-5 md:flex ${
+          collapsed ? "w-[68px] items-center" : "w-60 items-stretch px-3"
+        }`}
+      >
         <Link
           href="/"
-          className="mb-6 flex items-center gap-2.5 px-0 lg:px-2.5"
+          className={`mb-6 flex items-center gap-2.5 ${collapsed ? "" : "px-2.5"}`}
         >
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent text-[15px] font-semibold text-white">
             ph
           </span>
-          <span className="hidden text-[15px] font-semibold tracking-tight lg:inline">
+          <span className={`text-[15px] font-semibold tracking-tight ${label}`}>
             Personal Hub
           </span>
         </Link>
@@ -67,16 +94,22 @@ export default function AppShell({
                 key={item.href}
                 href={item.href}
                 title={item.label}
-                className={`group flex items-center gap-3 rounded-xl px-0 py-2.5 transition-colors lg:px-3 ${
+                className={`group flex items-center gap-3 rounded-xl py-2.5 transition-colors ${
+                  collapsed ? "px-0" : "px-3"
+                } ${
                   active
                     ? "bg-accent-soft text-accent-text"
                     : "text-text-muted hover:bg-bg-sunken hover:text-text"
                 }`}
               >
-                <span className="flex w-full items-center justify-center lg:w-auto lg:justify-start">
+                <span
+                  className={`flex items-center ${
+                    collapsed ? "w-full justify-center" : "w-auto justify-start"
+                  }`}
+                >
                   <Icon size={20} strokeWidth={active ? 2.4 : 2} />
                 </span>
-                <span className="hidden text-sm font-medium lg:inline">
+                <span className={`text-sm font-medium ${label}`}>
                   {item.label}
                 </span>
               </Link>
@@ -84,13 +117,18 @@ export default function AppShell({
           })}
         </nav>
 
+        <button onClick={toggleRail} aria-label="Toggle sidebar" className={actionBtn}>
+          {collapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
+          <span className={`text-sm font-medium ${label}`}>Collapse</span>
+        </button>
+
         <button
           onClick={() => setTheme(theme === "light" ? "dark" : "light")}
           aria-label="Toggle theme"
-          className="mt-2 flex items-center justify-center gap-3 rounded-xl py-2.5 text-text-muted transition-colors hover:bg-bg-sunken hover:text-text lg:justify-start lg:px-3"
+          className={actionBtn}
         >
           {mounted && theme === "light" ? <Moon size={20} /> : <Sun size={20} />}
-          <span className="hidden text-sm font-medium lg:inline">
+          <span className={`text-sm font-medium ${label}`}>
             {theme === "light" ? "Dark" : "Light"}
           </span>
         </button>
@@ -101,10 +139,10 @@ export default function AppShell({
               type="submit"
               aria-label="Sign out"
               title={`Sign out (${userEmail})`}
-              className="flex items-center justify-center gap-3 rounded-xl py-2.5 text-text-muted transition-colors hover:bg-bg-sunken hover:text-text lg:justify-start lg:px-3"
+              className={actionBtn}
             >
               <LogOut size={20} />
-              <span className="hidden truncate text-sm font-medium lg:inline">
+              <span className={`truncate text-sm font-medium ${label}`}>
                 Sign out
               </span>
             </button>
@@ -113,7 +151,7 @@ export default function AppShell({
       </aside>
 
       {/* Main column */}
-      <div className="md:pl-[68px] lg:pl-60">
+      <div className={collapsed ? "md:pl-[68px]" : "md:pl-60"}>
         <main className="mx-auto min-h-dvh w-full max-w-5xl px-5 pb-24 pt-6 md:px-8 md:pb-10">
           {children}
         </main>
