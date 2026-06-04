@@ -71,6 +71,84 @@ body {
   color: var(--accent-text);
 }
 
+/* Article reader typography */
+.prose-reader {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--text);
+  overflow-wrap: break-word;
+}
+.prose-reader p {
+  margin: 0 0 1.1em;
+}
+.prose-reader h1,
+.prose-reader h2,
+.prose-reader h3 {
+  font-family: var(--font-display), serif;
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 1.6em 0 0.6em;
+}
+.prose-reader h1 { font-size: 1.5em; }
+.prose-reader h2 { font-size: 1.3em; }
+.prose-reader h3 { font-size: 1.12em; }
+.prose-reader a {
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.prose-reader img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+  margin: 1.2em 0;
+}
+.prose-reader figure { margin: 1.2em 0; }
+.prose-reader figcaption {
+  font-size: 0.85em;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 0.5em;
+}
+.prose-reader blockquote {
+  border-left: 3px solid var(--border-strong);
+  padding-left: 1em;
+  margin: 1.2em 0;
+  color: var(--text-muted);
+  font-style: italic;
+}
+.prose-reader pre {
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1em;
+  overflow-x: auto;
+  font-size: 0.875em;
+  margin: 1.2em 0;
+}
+.prose-reader code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.875em;
+  background: var(--bg-sunken);
+  padding: 0.15em 0.4em;
+  border-radius: 6px;
+}
+.prose-reader pre code {
+  background: none;
+  padding: 0;
+}
+.prose-reader ul,
+.prose-reader ol {
+  margin: 0 0 1.1em;
+  padding-left: 1.4em;
+}
+.prose-reader li { margin: 0.3em 0; }
+.prose-reader hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2em 0;
+}
+
 /* Thin, unobtrusive scrollbars */
 * {
   scrollbar-width: thin;
