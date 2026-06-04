@@ -6,9 +6,11 @@ import {
   ChevronLeft,
   Loader2,
   Newspaper,
+  Settings2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { categories, type Category } from "@/lib/sources";
+import ManageSources from "@/components/ManageSources";
 
 type FeedItem = {
   title: string;
@@ -46,12 +48,13 @@ export default function FeedPage() {
   const [fetchingArticle, setFetchingArticle] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"list" | "reader">("list");
+  const [manageOpen, setManageOpen] = useState(false);
 
   const loadFeed = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
     else setStatus("loading");
     try {
-      const res = await fetch("/api/feed");
+      const res = await fetch(refresh ? "/api/feed?fresh=1" : "/api/feed");
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
       setItems(json.items ?? []);
@@ -100,13 +103,22 @@ export default function FeedPage() {
       >
         <div className="flex items-center justify-between">
           <h1 className="font-display text-2xl font-semibold tracking-tight">Feed</h1>
-          <button
-            onClick={() => loadFeed(true)}
-            aria-label="Refresh"
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-text-muted hover:bg-bg-sunken"
-          >
-            <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setManageOpen(true)}
+              aria-label="Manage feeds"
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-text-muted hover:bg-bg-sunken"
+            >
+              <Settings2 size={16} />
+            </button>
+            <button
+              onClick={() => loadFeed(true)}
+              aria-label="Refresh"
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-text-muted hover:bg-bg-sunken"
+            >
+              <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-1.5">
@@ -262,6 +274,13 @@ export default function FeedPage() {
           </div>
         )}
       </section>
+
+      {manageOpen && (
+        <ManageSources
+          onClose={() => setManageOpen(false)}
+          onChange={() => loadFeed(true)}
+        />
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import Parser from "rss-parser";
-import { sources, type RSSSource } from "./sources";
+import { type RSSSource } from "./sources";
 import { sanitizeHtml } from "./sanitize";
 
 export interface FeedItem {
@@ -89,8 +89,8 @@ async function fetchFeed(source: RSSSource): Promise<FeedItem[]> {
   }
 }
 
-// Fetch all feeds in parallel, merge, sort newest first.
-export async function fetchAllFeeds(): Promise<FeedItem[]> {
+// Fetch the given feeds in parallel, merge, sort newest first.
+export async function fetchAllFeeds(sources: RSSSource[]): Promise<FeedItem[]> {
   const results = await Promise.all(sources.map(fetchFeed));
   return results
     .flat()
