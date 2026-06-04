@@ -137,11 +137,7 @@ export default function FeedPage() {
       setStatus("idle");
       if (ui.selectedLink) {
         const item = cached.items.find((i) => i.link === ui.selectedLink) ?? null;
-        if (item) {
-          setSelected(item);
-          const art = getCachedArticle(item.link);
-          if (art) setFetchedContent(art);
-        }
+        if (item) setSelected(item);
       }
       if (!cached.fresh) loadFeed(true); // background refresh
     } else {
@@ -161,32 +157,45 @@ export default function FeedPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [expanded, drawerOpen, selected, closeReader]);
 
-  const openArticle = useCallback(async (item: FeedItem) => {
+  // Open an article — show the feed's own content by default (fast). The
+  // full readable extraction is fetched on demand via "Read in app".
+  const openArticle = useCallback((item: FeedItem) => {
     setSelected(item);
     setExpanded(false);
     setFeedUI({ selectedLink: item.link });
     setFetchError(null);
+    setFetchingArticle(false);
+    setFetchedContent(null);
     setMobileView("reader");
+  }, []);
 
-    const cached = getCachedArticle(item.link);
+  // Toggle the Mozilla Readability extraction (/api/article). Click once to
+  // fetch + show the parsed article, click again to return to feed content.
+  const toggleReadInApp = useCallback(async () => {
+    if (!selected) return;
+    if (fetchedContent) {
+      setFetchedContent(null);
+      return;
+    }
+    const cached = getCachedArticle(selected.link);
     if (cached) {
       setFetchedContent(cached);
       return;
     }
-    setFetchedContent(null);
     setFetchingArticle(true);
+    setFetchError(null);
     try {
-      const res = await fetch(`/api/article?url=${encodeURIComponent(item.link)}`);
+      const res = await fetch(`/api/article?url=${encodeURIComponent(selected.link)}`);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
       setFetchedContent(json.content);
-      setCachedArticle(item.link, json.content);
+      setCachedArticle(selected.link, json.content);
     } catch (err) {
       setFetchError(err instanceof Error ? err.message : "Failed to load article");
     } finally {
       setFetchingArticle(false);
     }
-  }, []);
+  }, [selected, fetchedContent]);
 
   function pickCategory(cat: string) {
     setFilter(cat);
@@ -486,6 +495,19 @@ export default function FeedPage() {
               </span>
               <div className="flex items-center gap-0.5">
                 <button
+                  onClick={toggleReadInApp}
+                  disabled={fetchingArticle}
+                  aria-label={fetchedContent ? "Show feed content" : "Read in app"}
+                  title={fetchedContent ? "Show feed content" : "Read full article in app"}
+                  className={`flex h-8 w-8 items-center justify-center rounded-lg hover:bg-bg-sunken disabled:opacity-50 ${
+                    fetchedContent
+                      ? "text-accent-text"
+                      : "text-text-muted hover:text-text"
+                  }`}
+                >
+                  <BookOpen size={16} className={fetchingArticle ? "animate-pulse" : ""} />
+                </button>
+                <button
                   onClick={() => setExpanded((v) => !v)}
                   aria-label={expanded ? "Collapse" : "Expand"}
                   className="hidden h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-bg-sunken hover:text-text md:flex"
@@ -531,11 +553,8 @@ export default function FeedPage() {
                   {selected.title}
                 </h1>
 
-                {fetchingArticle ? (
-                  <div className="flex items-center gap-2 py-10 text-sm text-text-muted">
-                    <Loader2 size={16} className="animate-spin" /> Loading article
-                  </div>
-                ) : fetchedContent ? (
+                {/* Priority: parsed article → feed full content → fallback */}
+                {fetchedContent ? (
                   <div
                     className="prose-reader"
                     dangerouslySetInnerHTML={{ __html: sanitizeHtml(fetchedContent) }}
@@ -547,6 +566,10 @@ export default function FeedPage() {
                       __html: sanitizeHtml(selected.fullContent),
                     }}
                   />
+                ) : fetchingArticle ? (
+                  <div className="flex items-center gap-2 py-10 text-sm text-text-muted">
+                    <Loader2 size={16} className="animate-spin" /> Fetching article…
+                  </div>
                 ) : (
                   <div>
                     {selected.summary && (
@@ -554,19 +577,27 @@ export default function FeedPage() {
                         {selected.summary}
                       </p>
                     )}
-                    {fetchError && (
+                    {fetchError ? (
                       <p className="mb-4 text-sm text-text-faint">
-                        Full text unavailable — read it at the source.
+                        Couldn&apos;t fetch full text — read it at the source.
+                      </p>
+                    ) : (
+                      <p className="mb-4 inline-flex items-center gap-1 text-sm text-text-faint">
+                        Tap{" "}
+                        <BookOpen size={13} className="inline-block align-text-bottom" />{" "}
+                        above to read the full article in app.
                       </p>
                     )}
-                    <a
-                      href={selected.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white"
-                    >
-                      Read original <ExternalLink size={15} />
-                    </a>
+                    <div>
+                      <a
+                        href={selected.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white"
+                      >
+                        Read original <ExternalLink size={15} />
+                      </a>
+                    </div>
                   </div>
                 )}
               </div>
