@@ -1,0 +1,52 @@
+import {
+  LayoutDashboard,
+  NotebookPen,
+  Sprout,
+  Rss,
+  Play,
+  type LucideIcon,
+} from "lucide-react";
+
+export type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  // Short tagline shown on dashboard cards
+  blurb: string;
+};
+
+export const navItems: NavItem[] = [
+  {
+    href: "/",
+    label: "Home",
+    icon: LayoutDashboard,
+    blurb: "Everything at a glance",
+  },
+  {
+    href: "/notes",
+    label: "Notes",
+    icon: NotebookPen,
+    blurb: "Quick thoughts and scratch",
+  },
+  {
+    href: "/garden",
+    label: "Garden",
+    icon: Sprout,
+    blurb: "Knowledge base and notes",
+  },
+  {
+    href: "/feed",
+    label: "Feed",
+    icon: Rss,
+    blurb: "News from your sources",
+  },
+  {
+    href: "/media",
+    label: "Media",
+    icon: Play,
+    blurb: "Videos and podcasts",
+  },
+];
+
+// Sections shown as launcher cards (everything except Home)
+export const sectionItems = navItems.filter((item) => item.href !== "/");

@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+/*
+  Design tokens — warm neutral "hearth" palette with an ember accent.
+  Light + dark resolved via [data-theme] on <html>.
+*/
+:root,
+[data-theme="light"] {
+  --bg: #f7f4ef;
+  --bg-elevated: #fffdf9;
+  --bg-sunken: #efeae1;
+  --border: #e3ddd1;
+  --border-strong: #d4cdbe;
+  --text: #2a2722;
+  --text-muted: #6b6457;
+  --text-faint: #9a9486;
+  --accent: #c2410c;
+  --accent-soft: #f4e3d7;
+  --accent-text: #9a3412;
+}
+
+[data-theme="dark"] {
+  --bg: #1a1814;
+  --bg-elevated: #232019;
+  --bg-sunken: #14120e;
+  --border: #322d24;
+  --border-strong: #423b30;
+  --text: #ece6da;
+  --text-muted: #a59c8c;
+  --text-faint: #6f6757;
+  --accent: #ea7a4d;
+  --accent-soft: #2e211a;
+  --accent-text: #f0a079;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-sunken: var(--bg-sunken);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-text: var(--accent-text);
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+/* Thin, unobtrusive scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 2px solid var(--bg);
+}
