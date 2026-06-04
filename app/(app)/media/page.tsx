@@ -9,9 +9,12 @@ import {
   spotifyEmbedUrl,
   applePodcastEmbedUrl,
 } from "@/lib/media";
-
-type MediaType = "youtube" | "spotify" | "apple-podcast";
-type Item = { id: string; type: MediaType; url: string; title: string | null };
+import {
+  getMediaCache,
+  setMediaCache,
+  type MediaRow as Item,
+  type MediaType,
+} from "@/lib/mediaStore";
 
 function embedSrc(item: { type: MediaType; url: string }): string {
   if (item.type === "youtube") return youtubeEmbedUrl(item.url);
@@ -37,11 +40,20 @@ export default function MediaPage() {
       .from("media_items")
       .select("id,type,url,title")
       .order("created_at", { ascending: false });
-    setItems((data as Item[]) ?? []);
+    const rows = (data as Item[]) ?? [];
+    setItems(rows);
+    setMediaCache(rows);
     setLoading(false);
   }, []);
 
+  // Show the cached list instantly; only hit the network if missing/stale.
   useEffect(() => {
+    const cached = getMediaCache();
+    if (cached) {
+      setItems(cached.items);
+      setLoading(false);
+      if (cached.fresh) return;
+    }
     load();
   }, [load]);
 
@@ -67,7 +79,11 @@ export default function MediaPage() {
 
   async function removeItem(id: string) {
     if (!supabase) return;
-    setItems((cur) => cur.filter((i) => i.id !== id));
+    setItems((cur) => {
+      const next = cur.filter((i) => i.id !== id);
+      setMediaCache(next);
+      return next;
+    });
     await supabase.from("media_items").delete().eq("id", id);
   }
 
