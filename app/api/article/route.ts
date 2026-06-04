@@ -2,10 +2,13 @@ import { NextResponse } from "next/server";
 import { lookup } from "node:dns/promises";
 import { parseHTML } from "linkedom";
 import { Readability } from "@mozilla/readability";
-import { sanitizeHtml } from "@/lib/sanitize";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
+
+// NOTE: the returned HTML is sanitized on the client (lib/sanitize) before it
+// is rendered. We deliberately do NOT run DOMPurify/jsdom here — jsdom fails to
+// initialize in the serverless bundle and crashes the function.
 
 // Reject loopback, private, link-local, and other non-public addresses so a
 // crafted ?url= can't make the server fetch internal services (SSRF).
@@ -86,7 +89,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       title: article.title,
-      content: sanitizeHtml(article.content),
+      content: article.content,
       excerpt: article.excerpt,
       byline: article.byline,
     });
