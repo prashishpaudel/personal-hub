@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { categories, type Category } from "@/lib/sources";
+import { sanitizeHtml } from "@/lib/sanitize";
 import ManageSources from "@/components/ManageSources";
 
 type FeedItem = {
@@ -235,12 +236,14 @@ export default function FeedPage() {
                 ) : fetchedContent ? (
                   <div
                     className="prose-reader"
-                    dangerouslySetInnerHTML={{ __html: fetchedContent }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(fetchedContent) }}
                   />
                 ) : selected.fullContent ? (
                   <div
                     className="prose-reader"
-                    dangerouslySetInnerHTML={{ __html: selected.fullContent }}
+                    dangerouslySetInnerHTML={{
+                      __html: sanitizeHtml(selected.fullContent),
+                    }}
                   />
                 ) : (
                   <div>

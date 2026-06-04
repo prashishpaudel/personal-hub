@@ -3,6 +3,9 @@ import { fetchAllFeeds, type FeedItem } from "@/lib/rss";
 import { sources as defaultSources, type RSSSource } from "@/lib/sources";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase-server";
 
+export const runtime = "nodejs";
+export const maxDuration = 60; // fetching many feeds can take a while
+
 // In-memory cache (per server instance). Resets on cold start — fine for personal use.
 let cache: { data: FeedItem[]; ts: number } | null = null;
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
@@ -34,11 +37,24 @@ export async function GET(request: Request) {
     );
   }
 
-  const items = await fetchAllFeeds(await resolveSources());
-  cache = { data: items, ts: now };
+  try {
+    const items = await fetchAllFeeds(await resolveSources());
+    cache = { data: items, ts: now };
 
-  return NextResponse.json(
-    { items, cached: false, cachedAt: new Date(now).toISOString() },
-    { headers: { "Cache-Control": "no-store" } }
-  );
+    return NextResponse.json(
+      { items, cached: false, cachedAt: new Date(now).toISOString() },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to load feeds";
+    console.error("[api/feed]", message);
+    // Serve stale cache if we have any, otherwise surface the error.
+    if (cache) {
+      return NextResponse.json(
+        { items: cache.data, cached: true, stale: true },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
+    return NextResponse.json({ items: [], error: message }, { status: 500 });
+  }
 }

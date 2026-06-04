@@ -1,6 +1,5 @@
 import Parser from "rss-parser";
 import { type RSSSource } from "./sources";
-import { sanitizeHtml } from "./sanitize";
 
 export interface FeedItem {
   title: string;
@@ -10,7 +9,9 @@ export interface FeedItem {
   sourceDomain: string;
   category: string;
   summary: string;
-  // Full HTML content from feed (not all feeds provide this), sanitized.
+  // Raw full HTML from the feed (not all feeds provide this). Sanitized on
+  // the client at render time — keeping it raw here avoids running jsdom
+  // over hundreds of items inside the serverless function (slow / times out).
   fullContent: string | null;
   // Hero image extracted from feed item.
   image: string | null;
@@ -79,7 +80,7 @@ async function fetchFeed(source: RSSSource): Promise<FeedItem[]> {
         summary: stripHtml(
           item.contentSnippet || item.content || item.summary || ""
         ).slice(0, 300),
-        fullContent: rawFull ? sanitizeHtml(rawFull) : null,
+        fullContent: rawFull,
         image: extractImage(raw),
       };
     });

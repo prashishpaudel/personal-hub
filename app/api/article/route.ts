@@ -4,6 +4,9 @@ import { parseHTML } from "linkedom";
 import { Readability } from "@mozilla/readability";
 import { sanitizeHtml } from "@/lib/sanitize";
 
+export const runtime = "nodejs";
+export const maxDuration = 30;
+
 // Reject loopback, private, link-local, and other non-public addresses so a
 // crafted ?url= can't make the server fetch internal services (SSRF).
 function isPrivateAddress(ip: string): boolean {
