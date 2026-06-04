@@ -12,6 +12,16 @@ import {
   BookmarkCheck,
   X,
   Search,
+  Maximize2,
+  Minimize2,
+  Globe,
+  BookOpen,
+  Cpu,
+  Lightbulb,
+  BarChart2,
+  FlaskConical,
+  Layers,
+  type LucideIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { sanitizeHtml } from "@/lib/sanitize";
@@ -43,6 +53,8 @@ function timeAgo(date: string): string {
 }
 
 function Favicon({ domain }: { domain: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <Globe size={16} className="h-4 w-4 shrink-0 text-text-faint" />;
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -51,8 +63,23 @@ function Favicon({ domain }: { domain: string }) {
       width={16}
       height={16}
       className="h-4 w-4 shrink-0 rounded"
+      onError={() => setFailed(true)}
     />
   );
+}
+
+const categoryIcons: Record<string, LucideIcon> = {
+  Tech: Cpu,
+  Ideas: Lightbulb,
+  Politics: BarChart2,
+  Science: FlaskConical,
+  All: Layers,
+  Saved: Bookmark,
+};
+
+function CategoryIcon({ category }: { category: string }) {
+  const Icon = categoryIcons[category] ?? BookOpen;
+  return <Icon size={16} className="shrink-0" />;
 }
 
 export default function FeedPage() {
@@ -70,6 +97,15 @@ export default function FeedPage() {
   const [manageOpen, setManageOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [favs, setFavs] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState(false);
+
+  const closeReader = useCallback(() => {
+    setSelected(null);
+    setExpanded(false);
+    setFetchedContent(null);
+    setMobileView("list");
+    setFeedUI({ selectedLink: null });
+  }, []);
 
   const loadFeed = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
@@ -113,8 +149,21 @@ export default function FeedPage() {
     }
   }, [loadFeed]);
 
+  // Esc: collapse expanded reader, else close drawer, else close reader.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (expanded) setExpanded(false);
+      else if (drawerOpen) setDrawerOpen(false);
+      else if (selected) closeReader();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [expanded, drawerOpen, selected, closeReader]);
+
   const openArticle = useCallback(async (item: FeedItem) => {
     setSelected(item);
+    setExpanded(false);
     setFeedUI({ selectedLink: item.link });
     setFetchError(null);
     setMobileView("reader");
@@ -226,12 +275,13 @@ export default function FeedPage() {
               <button
                 key={cat}
                 onClick={() => pickCategory(cat)}
-                className={`w-full rounded-lg px-2 py-1.5 text-left text-sm transition-colors ${
+                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors ${
                   !source && filter === cat
                     ? "bg-accent-soft text-accent-text"
                     : "text-text-muted hover:bg-bg-sunken hover:text-text"
                 }`}
               >
+                <CategoryIcon category={cat} />
                 {cat}
               </button>
             ))}
@@ -377,6 +427,9 @@ export default function FeedPage() {
                     </span>
                     <span>·</span>
                     <span className="shrink-0">{timeAgo(item.date)}</span>
+                    {item.fullContent && (
+                      <BookOpen size={11} className="shrink-0" aria-label="Full text" />
+                    )}
                   </div>
                   <p className="mt-0.5 line-clamp-2 text-sm font-medium">
                     {item.title}
@@ -392,19 +445,32 @@ export default function FeedPage() {
                     alt=""
                     loading="lazy"
                     className="h-14 w-14 shrink-0 rounded-lg object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
                   />
                 )}
               </button>
             ))
+          )}
+
+          {status === "idle" && filtered.length > 0 && (
+            <p className="py-3 text-center text-[11px] tabular-nums text-text-faint">
+              {filtered.length} posts
+            </p>
           )}
         </div>
       </aside>
 
       {/* Reader pane */}
       <section
-        className={`${
-          mobileView === "list" ? "hidden" : "flex"
-        } flex-1 flex-col rounded-2xl border border-border bg-bg-elevated md:flex`}
+        className={
+          selected && expanded
+            ? "fixed inset-0 z-40 flex flex-col bg-bg-elevated"
+            : `${
+                mobileView === "list" ? "hidden" : "flex"
+              } flex-1 flex-col rounded-2xl border border-border bg-bg-elevated md:flex`
+        }
       >
         {selected ? (
           <>
@@ -418,7 +484,14 @@ export default function FeedPage() {
               <span className="hidden truncate text-xs text-text-muted md:block">
                 {selected.source}
               </span>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={() => setExpanded((v) => !v)}
+                  aria-label={expanded ? "Collapse" : "Expand"}
+                  className="hidden h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-bg-sunken hover:text-text md:flex"
+                >
+                  {expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                </button>
                 <button
                   onClick={() => toggleFav(selected.link)}
                   aria-label="Save"
@@ -434,10 +507,18 @@ export default function FeedPage() {
                   href={selected.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-text-muted hover:text-accent-text"
+                  aria-label="Open original"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-bg-sunken hover:text-accent-text"
                 >
-                  Original <ExternalLink size={14} />
+                  <ExternalLink size={16} />
                 </a>
+                <button
+                  onClick={closeReader}
+                  aria-label="Close"
+                  className="hidden h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-bg-sunken hover:text-text md:flex"
+                >
+                  <X size={16} />
+                </button>
               </div>
             </header>
 
