@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Inter, Fraunces } from "next/font/google";
-import AppShell from "@/components/AppShell";
 import "./globals.css";
 
 const sans = Inter({
@@ -38,7 +37,7 @@ export default function RootLayout({
       <body
         className={`${sans.variable} ${display.variable} font-sans antialiased`}
       >
-        <AppShell>{children}</AppShell>
+        {children}
       </body>
     </html>
   );

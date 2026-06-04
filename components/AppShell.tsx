@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Moon, Sun } from "lucide-react";
+import { LogOut, Moon, Sun } from "lucide-react";
 import { navItems } from "@/lib/nav";
 
 const themeKey = "personal-hub:theme";
@@ -13,7 +13,13 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export default function AppShell({ children }: { children: React.ReactNode }) {
+export default function AppShell({
+  children,
+  userEmail,
+}: {
+  children: React.ReactNode;
+  userEmail?: string | null;
+}) {
   const pathname = usePathname();
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [mounted, setMounted] = useState(false);
@@ -88,6 +94,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             {theme === "light" ? "Dark" : "Light"}
           </span>
         </button>
+
+        {userEmail && (
+          <form action="/auth/signout" method="post" className="contents">
+            <button
+              type="submit"
+              aria-label="Sign out"
+              title={`Sign out (${userEmail})`}
+              className="flex items-center justify-center gap-3 rounded-xl py-2.5 text-text-muted transition-colors hover:bg-bg-sunken hover:text-text lg:justify-start lg:px-3"
+            >
+              <LogOut size={20} />
+              <span className="hidden truncate text-sm font-medium lg:inline">
+                Sign out
+              </span>
+            </button>
+          </form>
+        )}
       </aside>
 
       {/* Main column */}
