@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { sectionItems } from "@/lib/nav";
+import { getAllNotes } from "@/lib/garden";
+import RecentNotes from "@/components/widgets/RecentNotes";
+import FeedHighlights from "@/components/widgets/FeedHighlights";
+import GardenHighlights from "@/components/widgets/GardenHighlights";
 
 function greeting() {
   const h = new Date().getHours();
@@ -11,6 +15,15 @@ function greeting() {
 }
 
 export default function Home() {
+  const gardenNotes = [...getAllNotes()]
+    .sort((a, b) => {
+      if (a.date && b.date) return b.date.localeCompare(a.date);
+      if (a.date) return -1;
+      if (b.date) return 1;
+      return a.title.localeCompare(b.title);
+    })
+    .slice(0, 6);
+
   return (
     <div className="space-y-10">
       <header className="space-y-1.5 pt-2">
@@ -57,9 +70,11 @@ export default function Home() {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-text-faint">
           Recent activity
         </h2>
-        <div className="rounded-2xl border border-dashed border-border bg-bg-sunken/40 px-5 py-10 text-center text-sm text-text-muted">
-          Widgets land here once notes, feed, and garden are wired up.
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <RecentNotes />
+          <FeedHighlights />
         </div>
+        <GardenHighlights notes={gardenNotes} />
       </section>
     </div>
   );
