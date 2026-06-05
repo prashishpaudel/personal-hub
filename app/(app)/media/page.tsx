@@ -145,6 +145,29 @@ export default function MediaPage() {
       </form>
       {error && <p className="-mt-6 text-xs text-accent-text">{error}</p>}
 
+      {!loading &&
+        items.length > 0 &&
+        (() => {
+          const missing = defaultMedia.filter(
+            (m) => !items.some((i) => i.url === m.url)
+          ).length;
+          if (missing === 0) return null;
+          return (
+            <button
+              onClick={importDefaults}
+              disabled={busy}
+              className="flex items-center gap-2 self-start rounded-xl border border-dashed border-border px-4 py-2 text-sm font-medium text-text-muted hover:bg-bg-sunken disabled:opacity-50"
+            >
+              {busy ? (
+                <Loader2 size={15} className="animate-spin" />
+              ) : (
+                <DownloadCloud size={15} />
+              )}
+              Import {missing} new default{missing === 1 ? "" : "s"}
+            </button>
+          );
+        })()}
+
       {loading ? (
         <div className="flex items-center justify-center gap-2 py-10 text-sm text-text-muted">
           <Loader2 size={16} className="animate-spin" /> Loading
