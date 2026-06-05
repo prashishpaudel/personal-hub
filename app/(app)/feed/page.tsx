@@ -21,6 +21,7 @@ import {
   BarChart2,
   FlaskConical,
   Layers,
+  DollarSign,
   type LucideIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -73,6 +74,7 @@ const categoryIcons: Record<string, LucideIcon> = {
   Ideas: Lightbulb,
   Politics: BarChart2,
   Science: FlaskConical,
+  Finance: DollarSign,
   All: Layers,
   Saved: Bookmark,
 };

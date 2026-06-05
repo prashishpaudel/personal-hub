@@ -1,4 +1,10 @@
-export type Category = "Tech" | "Politics" | "Ideas" | "Science" | "Other";
+export type Category =
+  | "Tech"
+  | "Politics"
+  | "Ideas"
+  | "Science"
+  | "Finance"
+  | "Other";
 
 export interface RSSSource {
   name: string;
@@ -66,12 +72,55 @@ export const sources: RSSSource[] = [
   { name: "The Verge", url: "https://www.theverge.com/rss/index.xml", category: "Tech" },
   { name: "NPR Science", url: "https://feeds.npr.org/1007/rss.xml", category: "Science" },
   { name: "Phys.org", url: "https://phys.org/rss-feed/", category: "Science" },
+
+  // Finance
+  {
+    name: "CNBC Finance",
+    url: "https://www.cnbc.com/id/10000664/device/rss/rss.html",
+    category: "Finance",
+  },
+  {
+    name: "MarketWatch Top Stories",
+    url: "https://feeds.content.dowjones.io/public/rss/mw_topstories",
+    category: "Finance",
+  },
+  {
+    name: "Yahoo Finance",
+    url: "https://finance.yahoo.com/news/rssindex",
+    category: "Finance",
+  },
+  {
+    name: "Investing.com News",
+    url: "https://www.investing.com/rss/news.rss",
+    category: "Finance",
+  },
+  {
+    name: "A Wealth of Common Sense",
+    url: "https://awealthofcommonsense.com/feed/",
+    category: "Finance",
+  },
+  {
+    name: "Of Dollars and Data",
+    url: "https://ofdollarsanddata.com/feed/",
+    category: "Finance",
+  },
+  {
+    name: "The Big Picture",
+    url: "https://ritholtz.com/feed/",
+    category: "Finance",
+  },
+  {
+    name: "Calculated Risk",
+    url: "https://www.calculatedriskblog.com/feeds/posts/default",
+    category: "Finance",
+  },
 ];
 
 export const categories: Category[] = [
   "Tech",
   "Ideas",
   "Science",
+  "Finance",
   "Politics",
   "Other",
 ];
