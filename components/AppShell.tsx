@@ -77,8 +77,29 @@ export default function AppShell({
           href="/"
           className={`mb-6 flex items-center gap-2.5 ${collapsed ? "" : "px-2.5"}`}
         >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent text-[15px] font-semibold text-white">
-            ph
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent text-white">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 32 32"
+              fill="none"
+              aria-hidden="true"
+            >
+              <g stroke="currentColor" strokeWidth="2">
+                <line x1="16" y1="16" x2="16" y2="6" />
+                <line x1="16" y1="16" x2="26" y2="16" />
+                <line x1="16" y1="16" x2="16" y2="26" />
+                <line x1="16" y1="16" x2="6" y2="16" />
+              </g>
+              <g fill="currentColor">
+                <circle cx="16" cy="6" r="3" />
+                <circle cx="26" cy="16" r="3" />
+                <circle cx="16" cy="26" r="3" />
+                <circle cx="6" cy="16" r="3" />
+              </g>
+              <circle cx="16" cy="16" r="4.5" fill="currentColor" />
+              <circle cx="16" cy="16" r="2" className="fill-accent" />
+            </svg>
           </span>
           <span className={`text-[15px] font-semibold tracking-tight ${label}`}>
             Personal Hub
