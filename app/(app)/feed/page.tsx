@@ -22,6 +22,7 @@ import {
   FlaskConical,
   Layers,
   DollarSign,
+  ChevronDown,
   type LucideIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -100,6 +101,16 @@ export default function FeedPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [favs, setFavs] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState(false);
+  const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
+
+  function toggleCat(cat: string) {
+    setExpandedCats((cur) => {
+      const next = new Set(cur);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
+  }
 
   const closeReader = useCallback(() => {
     setSelected(null);
@@ -223,15 +234,20 @@ export default function FeedPage() {
     });
   }
 
-  const categories = useMemo(
-    () => ["All", ...Array.from(new Set(items.map((i) => i.category))).sort()],
-    [items]
-  );
-
-  const sources = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const i of items) if (!map.has(i.source)) map.set(i.source, i.sourceDomain);
-    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  // Sources grouped under their category for the accordion sidebar.
+  const sourceGroups = useMemo(() => {
+    const byCat = new Map<string, Map<string, string>>();
+    for (const i of items) {
+      if (!byCat.has(i.category)) byCat.set(i.category, new Map());
+      const m = byCat.get(i.category)!;
+      if (!m.has(i.source)) m.set(i.source, i.sourceDomain);
+    }
+    return [...byCat.entries()]
+      .map(([category, m]) => ({
+        category,
+        sources: [...m.entries()].sort((a, b) => a[0].localeCompare(b[0])),
+      }))
+      .sort((a, b) => a.category.localeCompare(b.category));
   }, [items]);
 
   const filtered = useMemo(() => {
@@ -279,45 +295,72 @@ export default function FeedPage() {
 
         <div>
           <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-widest text-text-faint">
-            Category
+            Browse
           </p>
           <div className="space-y-0.5">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => pickCategory(cat)}
-                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors ${
-                  !source && filter === cat
-                    ? "bg-accent-soft text-accent-text"
-                    : "text-text-muted hover:bg-bg-sunken hover:text-text"
-                }`}
-              >
-                <CategoryIcon category={cat} />
-                {cat}
-              </button>
-            ))}
-          </div>
-        </div>
+            <button
+              onClick={() => pickCategory("All")}
+              className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors ${
+                !source && filter === "All"
+                  ? "bg-accent-soft text-accent-text"
+                  : "text-text-muted hover:bg-bg-sunken hover:text-text"
+              }`}
+            >
+              <Layers size={16} className="shrink-0" /> All
+            </button>
 
-        <div>
-          <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-widest text-text-faint">
-            Sources
-          </p>
-          <div className="space-y-0.5">
-            {sources.map(([name, domain]) => (
-              <button
-                key={name}
-                onClick={() => pickSource(name)}
-                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors ${
-                  source === name
-                    ? "bg-accent-soft text-accent-text"
-                    : "text-text-muted hover:bg-bg-sunken hover:text-text"
-                }`}
-              >
-                <Favicon domain={domain} />
-                <span className="truncate">{name}</span>
-              </button>
-            ))}
+            {sourceGroups.map(({ category, sources }) => {
+              const open = expandedCats.has(category);
+              const catActive = !source && filter === category;
+              return (
+                <div key={category}>
+                  <div
+                    className={`flex items-center rounded-lg transition-colors ${
+                      catActive
+                        ? "bg-accent-soft text-accent-text"
+                        : "text-text-muted hover:bg-bg-sunken hover:text-text"
+                    }`}
+                  >
+                    <button
+                      onClick={() => pickCategory(category)}
+                      className="flex flex-1 items-center gap-2 px-2 py-1.5 text-left text-sm"
+                    >
+                      <CategoryIcon category={category} />
+                      {category}
+                    </button>
+                    <button
+                      onClick={() => toggleCat(category)}
+                      aria-label={`Toggle ${category} sources`}
+                      className="flex h-8 w-7 items-center justify-center rounded-lg hover:text-text"
+                    >
+                      <ChevronDown
+                        size={14}
+                        className={`transition-transform ${open ? "rotate-180" : ""}`}
+                      />
+                    </button>
+                  </div>
+
+                  {open && (
+                    <div className="ml-3 mt-0.5 space-y-0.5 border-l border-border pl-2">
+                      {sources.map(([name, domain]) => (
+                        <button
+                          key={name}
+                          onClick={() => pickSource(name)}
+                          className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[13px] transition-colors ${
+                            source === name
+                              ? "bg-accent-soft text-accent-text"
+                              : "text-text-muted hover:bg-bg-sunken hover:text-text"
+                          }`}
+                        >
+                          <Favicon domain={domain} />
+                          <span className="truncate">{name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
