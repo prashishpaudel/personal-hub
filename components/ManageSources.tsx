@@ -176,6 +176,28 @@ export default function ManageSources({
             </div>
           ) : (
             <ul className="space-y-1">
+              {(() => {
+                const missing = defaultSources.filter(
+                  (s) => !rows.some((r) => r.url === s.url)
+                ).length;
+                if (missing === 0) return null;
+                return (
+                  <li className="mb-2">
+                    <button
+                      onClick={importDefaults}
+                      disabled={busy}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-sm font-medium text-text-muted hover:bg-bg-sunken disabled:opacity-50"
+                    >
+                      {busy ? (
+                        <Loader2 size={15} className="animate-spin" />
+                      ) : (
+                        <DownloadCloud size={15} />
+                      )}
+                      Import {missing} new default{missing === 1 ? "" : "s"}
+                    </button>
+                  </li>
+                );
+              })()}
               {rows.map((s) => (
                 <li
                   key={s.id}
