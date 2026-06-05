@@ -1,4 +1,4 @@
-# Human Mind → Society → Civilization → Economy → Development → Meaning
+# Human Mind → Society → Civilization → Economy → Development → Meanings
 
 ## Goal
 
