@@ -12,6 +12,11 @@ dashboard widgets) are done and deployed.
 - [ ] 301 redirects: old `notes.` / `rss.` subdomains → hub
 - [ ] Archive the 3 old repos (personal-notepad, personal-memex, rss-aggregator)
 
+## Notes
+- [ ] Support pasted code as readable code blocks without wrapping unrelated text
+- [ ] Add lightweight writing formatting (numbered lists, bullet lists)
+- [ ] Add password-protected notes
+
 ## Polish / later
 - [ ] Garden: tag filter + tag pages
 - [ ] Garden: graph view (skipped in Phase 4)
