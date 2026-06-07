@@ -5,16 +5,22 @@ import { useMemo, useState } from "react";
 import { Search, FileText } from "lucide-react";
 import type { NoteMeta } from "@/lib/garden";
 
+// The index/MOC note is the entry point shown in the explorer + as the landing,
+// so keep it out of the browseable card grid.
+const HOME_SLUG = "index";
+
 export default function GardenSearch({ notes }: { notes: NoteMeta[] }) {
   const [query, setQuery] = useState("");
 
+  const rest = useMemo(() => notes.filter((n) => n.slug !== HOME_SLUG), [notes]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return notes;
-    return notes.filter((n) =>
+    if (!q) return rest;
+    return rest.filter((n) =>
       `${n.title} ${n.tags.join(" ")} ${n.excerpt}`.toLowerCase().includes(q)
     );
-  }, [notes, query]);
+  }, [rest, query]);
 
   return (
     <div className="space-y-5">
@@ -30,7 +36,7 @@ export default function GardenSearch({ notes }: { notes: NoteMeta[] }) {
 
       {filtered.length === 0 ? (
         <p className="py-10 text-center text-sm text-text-muted">
-          {notes.length === 0 ? "No notes yet." : "No matches."}
+          {rest.length === 0 ? "No notes yet." : "No matches."}
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
