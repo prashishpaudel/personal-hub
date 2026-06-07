@@ -1,5 +1,7 @@
 ---
 title: Great Thinkers
+date: 2026-06-07
+tags: [philosophy, society, economics, history, psychology]
 ---
 
 # Human Mind → Society → Civilization → Economy → Development → Meanings
