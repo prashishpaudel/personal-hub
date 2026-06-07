@@ -52,14 +52,19 @@ export function getFeedCache(): { items: FeedItem[]; ts: number; fresh: boolean 
 
 export function setFeedCache(items: FeedItem[]) {
   cache = { items, ts: Date.now() };
+  // Persist with fullContent so feed-provided articles (e.g. ByteByteGo) still
+  // render after a reload without a Readability re-fetch. fullContent can be
+  // heavy, so fall back to a stripped copy if we blow the sessionStorage quota.
+  const payload = JSON.stringify({ items, ts: cache.ts });
   try {
-    // Drop heavy fullContent before persisting — it can exceed the ~5MB
-    // sessionStorage quota. The reader fetches full text on demand anyway;
-    // fullContent stays available in the in-memory cache for this session.
-    const light = items.map((i) => ({ ...i, fullContent: null }));
-    sessionStorage.setItem(SS_KEY, JSON.stringify({ items: light, ts: cache.ts }));
+    sessionStorage.setItem(SS_KEY, payload);
   } catch {
-    /* quota / unavailable — keep in-memory only */
+    try {
+      const light = items.map((i) => ({ ...i, fullContent: null }));
+      sessionStorage.setItem(SS_KEY, JSON.stringify({ items: light, ts: cache.ts }));
+    } catch {
+      /* quota / unavailable — keep in-memory only */
+    }
   }
 }
 
