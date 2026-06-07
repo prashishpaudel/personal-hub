@@ -51,14 +51,33 @@ function extractImage(item: Record<string, unknown>): string | null {
   return null;
 }
 
+const namedEntities: Record<string, string> = {
+  nbsp: " ",
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+};
+
+// Decode HTML entities — numeric (decimal &#8217; / hex &#x2019;) and the
+// common named ones. Feeds deliver titles/summaries HTML-encoded, so without
+// this they render as raw entities (e.g. "Dell&#8217;s").
+function decodeEntities(text: string): string {
+  return text.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (match, code: string) => {
+    if (code[0] === "#") {
+      const num =
+        code[1] === "x" || code[1] === "X"
+          ? parseInt(code.slice(2), 16)
+          : parseInt(code.slice(1), 10);
+      return Number.isNaN(num) ? match : String.fromCodePoint(num);
+    }
+    return namedEntities[code.toLowerCase()] ?? match;
+  });
+}
+
 function stripHtml(html: string): string {
-  return html
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
+  return decodeEntities(html.replace(/<[^>]*>/g, " "))
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -71,7 +90,7 @@ async function fetchFeed(source: RSSSource): Promise<FeedItem[]> {
       const rawFull = (raw.contentEncoded as string) || item.content || null;
 
       return {
-        title: item.title?.trim() || "Untitled",
+        title: decodeEntities(item.title?.trim() || "") || "Untitled",
         link: item.link || item.guid || "",
         date: item.pubDate || item.isoDate || new Date().toISOString(),
         source: source.name,
