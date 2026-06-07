@@ -1,3 +1,7 @@
+---
+title: Great Thinkers
+---
+
 # Human Mind → Society → Civilization → Economy → Development → Meanings
 
 ## Goal
