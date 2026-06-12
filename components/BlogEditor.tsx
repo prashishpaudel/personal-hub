@@ -28,9 +28,16 @@ import {
   ChevronLeft,
   Send,
   Undo,
+  Trash2,
 } from "lucide-react";
 import NextLink from "next/link";
-import { publish, unpublish, updatePost, type Post } from "@/lib/blogStore";
+import {
+  publish,
+  softDelete,
+  unpublish,
+  updatePost,
+  type Post,
+} from "@/lib/blogStore";
 
 const SAVE_DEBOUNCE_MS = 600;
 
@@ -259,6 +266,20 @@ export default function BlogEditor({ post }: { post: Post }) {
     },
   });
 
+  async function handleDelete() {
+    if (!window.confirm("Move this draft to trash? You can restore it later.")) {
+      return;
+    }
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    pendingRef.current = {};
+    try {
+      await softDelete(post.id);
+      router.push("/blog");
+    } catch {
+      setSaveState("error");
+    }
+  }
+
   async function togglePublish() {
     await flushSave();
     try {
@@ -304,6 +325,18 @@ export default function BlogEditor({ post }: { post: Post }) {
               </>
             )}
           </span>
+
+          {status === "draft" && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              title="Move to trash"
+              aria-label="Move to trash"
+              className="flex h-8 w-8 items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-bg-sunken hover:text-text"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
 
           <button
             type="button"
