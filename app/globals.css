@@ -149,6 +149,15 @@ body {
   margin: 2em 0;
 }
 
+/* Tiptap editor (blog) — placeholder text for the empty document */
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+
 /* Thin, unobtrusive scrollbars */
 * {
   scrollbar-width: thin;

@@ -2,6 +2,7 @@ import {
   LayoutDashboard,
   NotebookPen,
   Sprout,
+  PenLine,
   Rss,
   Play,
   type LucideIcon,
@@ -33,6 +34,12 @@ export const navItems: NavItem[] = [
     label: "Garden",
     icon: Sprout,
     blurb: "Knowledge base and notes",
+  },
+  {
+    href: "/blog",
+    label: "Blog",
+    icon: PenLine,
+    blurb: "Long-form writing",
   },
   {
     href: "/feed",

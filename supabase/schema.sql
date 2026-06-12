@@ -98,3 +98,45 @@ drop policy if exists "Owner can delete media" on public.media_items;
 create policy "Owner can delete media"
   on public.media_items for delete to authenticated
   using (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------------
+-- Blog posts — long-form writing (private; draft/published is a workflow
+-- flag, deleted_at is a soft delete: rows only leave via manual DB action)
+-- ---------------------------------------------------------------------------
+create table if not exists public.blog_posts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  title text not null default '',
+  content_html text not null default '',
+  status text not null default 'draft' check (status in ('draft', 'published')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  published_at timestamptz,
+  deleted_at timestamptz
+);
+
+create index if not exists blog_posts_user_updated_idx
+  on public.blog_posts (user_id, updated_at desc);
+
+alter table public.blog_posts enable row level security;
+
+drop policy if exists "Owner can read posts" on public.blog_posts;
+create policy "Owner can read posts"
+  on public.blog_posts for select to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "Owner can insert posts" on public.blog_posts;
+create policy "Owner can insert posts"
+  on public.blog_posts for insert to authenticated
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Owner can update posts" on public.blog_posts;
+create policy "Owner can update posts"
+  on public.blog_posts for update to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Owner can delete posts" on public.blog_posts;
+create policy "Owner can delete posts"
+  on public.blog_posts for delete to authenticated
+  using (auth.uid() = user_id);
