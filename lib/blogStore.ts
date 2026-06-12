@@ -126,6 +126,12 @@ export async function softDelete(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+// Permanent removal — only offered from the Trash view.
+export async function hardDelete(id: string): Promise<void> {
+  const { error } = await client().from("blog_posts").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 export async function restore(id: string): Promise<void> {
   const { error } = await client()
     .from("blog_posts")

@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { PenLine, Plus, RotateCcw, Loader2 } from "lucide-react";
+import { PenLine, Plus, RotateCcw, Loader2, Trash2 } from "lucide-react";
 import {
   createDraft,
+  hardDelete,
   listPosts,
   listTrash,
   restore,
@@ -27,6 +28,24 @@ function timeAgo(ts: number) {
     day: "numeric",
     year: "numeric",
   }).format(ts);
+}
+
+// Plain-text preview from the stored editor HTML.
+function excerpt(html: string, max = 200): string {
+  const text = html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
+function readingTime(html: string): string {
+  const words = html.replace(/<[^>]*>/g, " ").trim().split(/\s+/).length;
+  return `${Math.max(1, Math.round(words / 220))} min read`;
 }
 
 const emptyCopy: Record<Tab, string> = {
@@ -86,6 +105,24 @@ export default function BlogPage() {
     } catch (err) {
       setStatus("error");
       setMessage(err instanceof Error ? err.message : "Failed to restore.");
+    }
+  }
+
+  async function deleteForever(post: Post) {
+    const name = post.title || "Untitled";
+    if (
+      !window.confirm(
+        `Permanently delete "${name}"? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    try {
+      await hardDelete(post.id);
+      await load();
+    } catch (err) {
+      setStatus("error");
+      setMessage(err instanceof Error ? err.message : "Failed to delete.");
     }
   }
 
@@ -156,53 +193,79 @@ export default function BlogPage() {
           <PenLine size={26} />
           <p className="text-sm">{emptyCopy[tab]}</p>
         </div>
-      ) : (
+      ) : tab === "trash" ? (
         <ul className="space-y-1">
           {visible.map((post) => (
             <li
               key={post.id}
               className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-bg-sunken"
             >
-              {tab === "trash" ? (
-                <>
-                  <span className="min-w-0 flex-1 truncate text-[15px] text-text-muted">
-                    {post.title || "Untitled"}
-                  </span>
-                  <span className="shrink-0 text-xs text-text-faint">
-                    deleted {post.deletedAt ? timeAgo(post.deletedAt) : ""}
-                  </span>
-                  <button
-                    onClick={() => restorePost(post.id)}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-accent-text hover:bg-accent-soft"
-                  >
-                    <RotateCcw size={13} /> Restore
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link
-                    href={
-                      post.status === "draft"
-                        ? `/blog/${post.id}/edit`
-                        : `/blog/${post.id}`
-                    }
-                    className="min-w-0 flex-1 truncate text-[15px] font-medium"
-                  >
-                    {post.title || "Untitled"}
-                  </Link>
-                  {post.status === "draft" && (
-                    <span className="shrink-0 rounded-full bg-bg-sunken px-2 py-0.5 text-[11px] text-text-muted">
-                      draft
-                    </span>
-                  )}
-                  <span className="shrink-0 text-xs text-text-faint">
-                    {timeAgo(post.updatedAt)}
-                  </span>
-                </>
-              )}
+              <span className="min-w-0 flex-1 truncate text-[15px] text-text-muted">
+                {post.title || "Untitled"}
+              </span>
+              <span className="shrink-0 text-xs text-text-faint">
+                deleted {post.deletedAt ? timeAgo(post.deletedAt) : ""}
+              </span>
+              <button
+                onClick={() => restorePost(post.id)}
+                className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-accent-text hover:bg-accent-soft"
+              >
+                <RotateCcw size={13} /> Restore
+              </button>
+              <button
+                onClick={() => deleteForever(post)}
+                title="Delete forever"
+                className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-red-400 hover:bg-bg-sunken"
+              >
+                <Trash2 size={13} /> Delete forever
+              </button>
             </li>
           ))}
         </ul>
+      ) : (
+        <div className="divide-y divide-border">
+          {visible.map((post) => {
+            const preview = excerpt(post.contentHtml);
+            return (
+              <Link
+                key={post.id}
+                href={
+                  post.status === "draft"
+                    ? `/blog/${post.id}/edit`
+                    : `/blog/${post.id}`
+                }
+                className="group block space-y-1.5 py-5 first:pt-2"
+              >
+                <div className="flex items-center gap-2 text-xs text-text-faint">
+                  <span>
+                    {post.status === "published" && post.publishedAt
+                      ? timeAgo(post.publishedAt)
+                      : `edited ${timeAgo(post.updatedAt)}`}
+                  </span>
+                  {preview && (
+                    <>
+                      <span>·</span>
+                      <span>{readingTime(post.contentHtml)}</span>
+                    </>
+                  )}
+                  {post.status === "draft" && (
+                    <span className="rounded-full bg-bg-sunken px-2 py-0.5 text-[11px] text-text-muted">
+                      draft
+                    </span>
+                  )}
+                </div>
+                <h2 className="font-display text-xl font-semibold tracking-tight transition-colors group-hover:text-accent-text">
+                  {post.title || "Untitled"}
+                </h2>
+                {preview && (
+                  <p className="line-clamp-2 text-sm leading-relaxed text-text-muted">
+                    {preview}
+                  </p>
+                )}
+              </Link>
+            );
+          })}
+        </div>
       )}
     </div>
   );
