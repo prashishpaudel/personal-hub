@@ -1,6 +1,6 @@
 export type Category =
   | "Tech"
-  | "Politics"
+  | "World"
   | "Ideas"
   | "Science"
   | "Finance"
@@ -12,26 +12,18 @@ export interface RSSSource {
   category: Category;
 }
 
-// Add or remove feeds here.
+// Add or remove feeds here. Grouped by category for readability.
 export const sources: RSSSource[] = [
-  {
-    name: "LessWrong Frontpage",
-    url: "https://www.lesswrong.com/feed.xml?view=frontpage",
-    category: "Ideas",
-  },
-  {
-    name: "LessWrong Curated",
-    url: "https://www.lesswrong.com/feed.xml?view=curated",
-    category: "Ideas",
-  },
+  // Tech
   { name: "Hacker News", url: "https://news.ycombinator.com/rss", category: "Tech" },
   { name: "Juejin", url: "https://juejin.cn/rss", category: "Tech" },
-  {
-    name: "Escalation Trap",
-    url: "https://escalationtrap.substack.com/feed",
-    category: "Politics",
-  },
   { name: "ByteByteGo", url: "https://blog.bytebytego.com/feed", category: "Tech" },
+  { name: "Techmeme", url: "https://www.techmeme.com/feed.xml", category: "Tech" },
+  {
+    name: "MIT Technology Review",
+    url: "https://www.technologyreview.com/feed",
+    category: "Tech",
+  },
   { name: "Latent Space", url: "https://www.latent.space/feed", category: "Tech" },
   { name: "Mikhail Shilkov", url: "https://mikhail.io/feed/", category: "Tech" },
   {
@@ -56,22 +48,7 @@ export const sources: RSSSource[] = [
   },
   { name: "Lil's blog", url: "https://lilianweng.github.io/index.xml", category: "Tech" },
   { name: "AI News", url: "https://news.smol.ai/rss.xml", category: "Tech" },
-  { name: "Space.com", url: "https://www.space.com/feeds/all", category: "Science" },
-  { name: "MIT News", url: "https://news.mit.edu/rss/feed", category: "Science" },
-  { name: "Nature", url: "https://www.nature.com/nature.rss", category: "Science" },
-  {
-    name: "Quanta Magazine",
-    url: "https://www.quantamagazine.org/feed/",
-    category: "Science",
-  },
-  {
-    name: "Science News",
-    url: "https://www.sciencenews.org/feed",
-    category: "Science",
-  },
   { name: "The Verge", url: "https://www.theverge.com/rss/index.xml", category: "Tech" },
-  { name: "NPR Science", url: "https://feeds.npr.org/1007/rss.xml", category: "Science" },
-  { name: "Phys.org", url: "https://phys.org/rss-feed/", category: "Science" },
 
   // Finance
   {
@@ -114,13 +91,65 @@ export const sources: RSSSource[] = [
     url: "https://www.calculatedriskblog.com/feeds/posts/default",
     category: "Finance",
   },
+
+  // Ideas
+  {
+    name: "LessWrong Frontpage",
+    url: "https://www.lesswrong.com/feed.xml?view=frontpage",
+    category: "Ideas",
+  },
+  {
+    name: "LessWrong Curated",
+    url: "https://www.lesswrong.com/feed.xml?view=curated",
+    category: "Ideas",
+  },
+
+  // Science
+  { name: "Space.com", url: "https://www.space.com/feeds/all", category: "Science" },
+  { name: "MIT News", url: "https://news.mit.edu/rss/feed", category: "Science" },
+  { name: "Nature", url: "https://www.nature.com/nature.rss", category: "Science" },
+  {
+    name: "Quanta Magazine",
+    url: "https://www.quantamagazine.org/feed/",
+    category: "Science",
+  },
+  {
+    name: "Science News",
+    url: "https://www.sciencenews.org/feed",
+    category: "Science",
+  },
+  { name: "NPR Science", url: "https://feeds.npr.org/1007/rss.xml", category: "Science" },
+  { name: "Phys.org", url: "https://phys.org/rss-feed/", category: "Science" },
+
+  // World
+  {
+    name: "BBC News",
+    url: "https://feeds.bbci.co.uk/news/rss.xml",
+    category: "World",
+  },
+  {
+    name: "BBC World",
+    url: "https://feeds.bbci.co.uk/news/world/rss.xml",
+    category: "World",
+  },
+  {
+    name: "Guardian World",
+    url: "https://www.theguardian.com/world/rss",
+    category: "World",
+  },
+  {
+    name: "Al Jazeera",
+    url: "https://www.aljazeera.com/xml/rss/all.xml",
+    category: "World",
+  },
+
 ];
 
 export const categories: Category[] = [
   "Tech",
+  "World",
   "Ideas",
   "Science",
   "Finance",
-  "Politics",
   "Other",
 ];
