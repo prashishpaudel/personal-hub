@@ -18,7 +18,6 @@ import {
   BookOpen,
   Cpu,
   Lightbulb,
-  BarChart2,
   FlaskConical,
   Layers,
   DollarSign,
@@ -72,8 +71,8 @@ function Favicon({ domain }: { domain: string }) {
 
 const categoryIcons: Record<string, LucideIcon> = {
   Tech: Cpu,
+  World: Globe,
   Ideas: Lightbulb,
-  Politics: BarChart2,
   Science: FlaskConical,
   Finance: DollarSign,
   All: Layers,
