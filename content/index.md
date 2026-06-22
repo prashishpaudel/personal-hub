@@ -10,5 +10,6 @@ title: Home
 - [[Claude Code Tips]]
 - [[Git Cheatsheet]]
 - [[Linux Cheatsheet]]
+- [[Terminal Shortcuts]]
 - [[Docker Cheatsheet]]
 - [[Kubernetes Cheatsheet]]
