@@ -234,17 +234,27 @@ export default function FeedPage() {
   }
 
   // Sources grouped under their category for the accordion sidebar.
+  // Within a category, sources are ordered by their freshest article so the
+  // most recently active feed sits on top.
   const sourceGroups = useMemo(() => {
-    const byCat = new Map<string, Map<string, string>>();
+    const byCat = new Map<
+      string,
+      Map<string, { domain: string; latest: number }>
+    >();
     for (const i of items) {
       if (!byCat.has(i.category)) byCat.set(i.category, new Map());
       const m = byCat.get(i.category)!;
-      if (!m.has(i.source)) m.set(i.source, i.sourceDomain);
+      const t = new Date(i.date).getTime();
+      const existing = m.get(i.source);
+      if (!existing) m.set(i.source, { domain: i.sourceDomain, latest: t });
+      else if (t > existing.latest) existing.latest = t;
     }
     return [...byCat.entries()]
       .map(([category, m]) => ({
         category,
-        sources: [...m.entries()].sort((a, b) => a[0].localeCompare(b[0])),
+        sources: [...m.entries()]
+          .sort((a, b) => b[1].latest - a[1].latest)
+          .map(([name, v]) => [name, v.domain] as [string, string]),
       }))
       .sort((a, b) => a.category.localeCompare(b.category));
   }, [items]);
