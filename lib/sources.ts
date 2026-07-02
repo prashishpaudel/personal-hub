@@ -103,6 +103,7 @@ export const sources: RSSSource[] = [
     url: "https://www.lesswrong.com/feed.xml?view=curated",
     category: "Ideas",
   },
+  { name: "Aeon", url: "https://aeon.co/feed.rss", category: "Ideas" },
 
   // Science
   { name: "Space.com", url: "https://www.space.com/feeds/all", category: "Science" },
