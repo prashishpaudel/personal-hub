@@ -12,6 +12,7 @@ import {
   BookmarkCheck,
   X,
   Search,
+  Plus,
   Maximize2,
   Minimize2,
   Globe,
@@ -98,6 +99,9 @@ export default function FeedPage() {
   const [manageOpen, setManageOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [savedItems, setSavedItems] = useState<FeedItem[]>([]);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [addingLink, setAddingLink] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
 
@@ -250,6 +254,55 @@ export default function FeedPage() {
           ? [item, ...cur.filter((i) => i.link !== item.link)]
           : cur.filter((i) => i.link !== item.link)
       );
+    }
+  }
+
+  // Save an arbitrary article URL to the reading list. Extracts a title +
+  // excerpt via the same Readability route the reader uses, then stores a
+  // snapshot like any other saved article.
+  async function addLink(e: React.FormEvent) {
+    e.preventDefault();
+    const raw = linkUrl.trim();
+    if (!raw) return;
+    const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    let host: string;
+    try {
+      host = new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      setLinkError("Enter a valid URL.");
+      return;
+    }
+    if (favs.has(url)) {
+      setLinkError("Already saved.");
+      return;
+    }
+    setAddingLink(true);
+    setLinkError(null);
+    try {
+      const res = await fetch(`/api/article?url=${encodeURIComponent(url)}`);
+      const json = await res.json();
+      const item: FeedItem = {
+        title: (res.ok && json.title?.trim()) || host,
+        link: url,
+        date: new Date().toISOString(),
+        source: host,
+        sourceDomain: host,
+        category: "",
+        summary: (res.ok && json.excerpt?.trim()) || "",
+        fullContent: null,
+        image: null,
+      };
+      setSavedItems((cur) => [item, ...cur.filter((i) => i.link !== url)]);
+      await addSaved(item);
+      setLinkUrl("");
+      setFilter("Saved");
+      setSource(null);
+      setFeedUI({ filter: "Saved", source: null });
+    } catch {
+      setSavedItems((cur) => cur.filter((i) => i.link !== url));
+      setLinkError("Couldn't save that link.");
+    } finally {
+      setAddingLink(false);
     }
   }
 
@@ -475,6 +528,39 @@ export default function FeedPage() {
             className="w-full bg-transparent text-sm outline-none placeholder:text-text-faint"
           />
         </label>
+
+        {filter === "Saved" && (
+          <form onSubmit={addLink} className="space-y-1.5">
+            <div className="flex items-center gap-2 rounded-xl border border-border bg-bg-elevated px-3 py-2 focus-within:border-border-strong">
+              <Plus size={15} className="shrink-0 text-text-faint" />
+              <input
+                value={linkUrl}
+                onChange={(e) => {
+                  setLinkUrl(e.target.value);
+                  if (linkError) setLinkError(null);
+                }}
+                placeholder="Paste an article link to save"
+                className="w-full bg-transparent text-sm outline-none placeholder:text-text-faint"
+              />
+              {linkUrl.trim() && (
+                <button
+                  type="submit"
+                  disabled={addingLink}
+                  className="shrink-0 rounded-lg bg-accent px-2.5 py-1 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                >
+                  {addingLink ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    "Save"
+                  )}
+                </button>
+              )}
+            </div>
+            {linkError && (
+              <p className="px-1 text-xs text-red-400">{linkError}</p>
+            )}
+          </form>
+        )}
 
         <div className="flex-1 space-y-1 overflow-y-auto pr-1">
           {status === "loading" ? (
