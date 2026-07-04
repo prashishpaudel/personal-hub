@@ -35,9 +35,8 @@ import {
   setFeedUI,
   getCachedArticle,
   setCachedArticle,
-  loadFavs,
-  saveFavs,
 } from "@/lib/feedStore";
+import { listSaved, addSaved, removeSaved } from "@/lib/savedStore";
 
 function timeAgo(date: string): string {
   const diff = Date.now() - new Date(date).getTime();
@@ -98,9 +97,15 @@ export default function FeedPage() {
   const [mobileView, setMobileView] = useState<"list" | "reader">("list");
   const [manageOpen, setManageOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [favs, setFavs] = useState<Set<string>>(new Set());
+  const [savedItems, setSavedItems] = useState<FeedItem[]>([]);
   const [expanded, setExpanded] = useState(false);
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
+
+  // Quick lookup of which links are saved, for the bookmark toggle state.
+  const favs = useMemo(
+    () => new Set(savedItems.map((i) => i.link)),
+    [savedItems]
+  );
 
   function toggleCat(cat: string) {
     setExpandedCats((cur) => {
@@ -138,7 +143,11 @@ export default function FeedPage() {
 
   // Mount: restore from the client cache instantly; only fetch if missing/stale.
   useEffect(() => {
-    setFavs(loadFavs());
+    listSaved()
+      .then(setSavedItems)
+      .catch(() => {
+        /* bookmarks unavailable — feed still works */
+      });
     const ui = getFeedUI();
     setFilter(ui.filter);
     setSource(ui.source);
@@ -223,14 +232,25 @@ export default function FeedPage() {
     setDrawerOpen(false);
   }
 
-  function toggleFav(link: string) {
-    setFavs((cur) => {
-      const next = new Set(cur);
-      if (next.has(link)) next.delete(link);
-      else next.add(link);
-      saveFavs(next);
-      return next;
-    });
+  async function toggleFav(item: FeedItem) {
+    const wasSaved = favs.has(item.link);
+    // Optimistic: update the list now, reconcile with Supabase after.
+    setSavedItems((cur) =>
+      wasSaved
+        ? cur.filter((i) => i.link !== item.link)
+        : [item, ...cur.filter((i) => i.link !== item.link)]
+    );
+    try {
+      if (wasSaved) await removeSaved(item.link);
+      else await addSaved(item);
+    } catch {
+      // Revert on failure.
+      setSavedItems((cur) =>
+        wasSaved
+          ? [item, ...cur.filter((i) => i.link !== item.link)]
+          : cur.filter((i) => i.link !== item.link)
+      );
+    }
   }
 
   // Sources grouped under their category for the accordion sidebar.
@@ -261,10 +281,11 @@ export default function FeedPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return items.filter((item) => {
-      if (filter === "Saved") {
-        if (!favs.has(item.link)) return false;
-      } else if (filter !== "All" && item.category !== filter) {
+    // Saved view reads from the stored snapshots so bookmarks still render
+    // after an article ages out of its source feed.
+    const base = filter === "Saved" ? savedItems : items;
+    return base.filter((item) => {
+      if (filter !== "Saved" && filter !== "All" && item.category !== filter) {
         return false;
       }
       if (source && item.source !== source) return false;
@@ -272,7 +293,7 @@ export default function FeedPage() {
         return false;
       return true;
     });
-  }, [items, filter, source, search, favs]);
+  }, [items, savedItems, filter, source, search]);
 
   const activeLabel = source ?? (filter === "All" ? "All sources" : filter);
 
@@ -569,7 +590,7 @@ export default function FeedPage() {
                   {expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
                 </button>
                 <button
-                  onClick={() => toggleFav(selected.link)}
+                  onClick={() => toggleFav(selected)}
                   aria-label="Save"
                   className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-bg-sunken hover:text-accent-text"
                 >

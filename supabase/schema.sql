@@ -140,3 +140,43 @@ drop policy if exists "Owner can delete posts" on public.blog_posts;
 create policy "Owner can delete posts"
   on public.blog_posts for delete to authenticated
   using (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------------
+-- Saved articles — bookmarks from the Feed reader. Stores a snapshot of the
+-- article so it still renders after it ages out of the source feed, and syncs
+-- across devices (replaces the old localStorage-only favorites).
+-- ---------------------------------------------------------------------------
+create table if not exists public.saved_articles (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  link text not null,
+  title text not null default '',
+  source text not null default '',
+  source_domain text not null default '',
+  category text not null default '',
+  summary text not null default '',
+  image text,
+  published_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (user_id, link)
+);
+
+create index if not exists saved_articles_user_created_idx
+  on public.saved_articles (user_id, created_at desc);
+
+alter table public.saved_articles enable row level security;
+
+drop policy if exists "Owner can read saved" on public.saved_articles;
+create policy "Owner can read saved"
+  on public.saved_articles for select to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "Owner can insert saved" on public.saved_articles;
+create policy "Owner can insert saved"
+  on public.saved_articles for insert to authenticated
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Owner can delete saved" on public.saved_articles;
+create policy "Owner can delete saved"
+  on public.saved_articles for delete to authenticated
+  using (auth.uid() = user_id);

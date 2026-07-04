@@ -23,7 +23,6 @@ export type FeedUI = {
 
 const TTL_MS = 10 * 60 * 1000;
 const SS_KEY = "personal-hub:feed-cache";
-const FAVS_KEY = "personal-hub:feed-favs";
 
 type Cache = { items: FeedItem[]; ts: number } | null;
 
@@ -82,23 +81,4 @@ export function getCachedArticle(link: string): string | undefined {
 
 export function setCachedArticle(link: string, html: string) {
   articleCache.set(link, html);
-}
-
-// Favorites ("Saved") — keyed by article link, persisted to localStorage.
-export function loadFavs(): Set<string> {
-  if (typeof window === "undefined") return new Set();
-  try {
-    const raw = localStorage.getItem(FAVS_KEY);
-    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-export function saveFavs(favs: Set<string>) {
-  try {
-    localStorage.setItem(FAVS_KEY, JSON.stringify([...favs]));
-  } catch {
-    /* ignore */
-  }
 }
