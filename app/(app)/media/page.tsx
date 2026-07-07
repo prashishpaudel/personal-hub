@@ -79,6 +79,9 @@ export default function MediaPage() {
 
   async function removeItem(id: string) {
     if (!supabase) return;
+    const item = items.find((i) => i.id === id);
+    const label = item?.title ? `"${item.title}"` : "this item";
+    if (!window.confirm(`Delete ${label}? This can't be undone.`)) return;
     setItems((cur) => {
       const next = cur.filter((i) => i.id !== id);
       setMediaCache(next);
@@ -231,14 +234,7 @@ function MediaCard({
   audio?: boolean;
 }) {
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-border bg-bg-elevated">
-      <button
-        onClick={() => onRemove(item.id)}
-        aria-label="Remove"
-        className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-lg bg-bg/80 text-text-muted opacity-0 backdrop-blur transition-opacity hover:text-accent-text group-hover:opacity-100"
-      >
-        <Trash2 size={15} />
-      </button>
+    <div className="overflow-hidden rounded-2xl border border-border bg-bg-elevated">
       {audio ? (
         <iframe
           src={embedSrc(item)}
@@ -248,22 +244,29 @@ function MediaCard({
           className="h-[175px] w-full"
         />
       ) : (
-        <>
-          <div className="aspect-video">
-            <iframe
-              src={embedSrc(item)}
-              title={item.title ?? "Video"}
-              loading="lazy"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              className="h-full w-full"
-            />
-          </div>
-          {item.title && (
-            <p className="px-4 py-3 text-sm font-medium">{item.title}</p>
-          )}
-        </>
+        <div className="aspect-video">
+          <iframe
+            src={embedSrc(item)}
+            title={item.title ?? "Video"}
+            loading="lazy"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            className="h-full w-full"
+          />
+        </div>
       )}
+      <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
+        <p className="min-w-0 flex-1 truncate text-sm font-medium">
+          {item.title || (audio ? "Podcast" : "Video")}
+        </p>
+        <button
+          onClick={() => onRemove(item.id)}
+          aria-label="Remove"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-sunken hover:text-accent-text"
+        >
+          <Trash2 size={15} />
+        </button>
+      </div>
     </div>
   );
 }

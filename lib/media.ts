@@ -24,11 +24,15 @@ export const mediaItems: MediaItem[] = [
 export function youtubeEmbedUrl(url: string): string {
   try {
     const u = new URL(url);
-    if (u.hostname === "youtu.be") {
-      return `https://www.youtube.com/embed${u.pathname}`;
+    const list = u.searchParams.get("list");
+    const id =
+      u.hostname === "youtu.be" ? u.pathname.slice(1) : u.searchParams.get("v");
+
+    if (id) {
+      const base = `https://www.youtube.com/embed/${id}`;
+      return list ? `${base}?list=${list}` : base;
     }
-    const id = u.searchParams.get("v");
-    if (id) return `https://www.youtube.com/embed/${id}`;
+    if (list) return `https://www.youtube.com/embed/videoseries?list=${list}`;
   } catch {
     // fall through
   }
