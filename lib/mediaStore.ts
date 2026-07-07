@@ -7,6 +7,7 @@ export type MediaRow = {
   type: MediaType;
   url: string;
   title: string | null;
+  is_course: boolean;
 };
 
 const TTL_MS = 5 * 60 * 1000;

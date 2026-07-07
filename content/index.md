@@ -13,3 +13,7 @@ title: Home
 - [[Terminal Shortcuts]]
 - [[Docker Cheatsheet]]
 - [[Kubernetes Cheatsheet]]
+
+## Learning
+
+- [[Astronomy]]

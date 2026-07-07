@@ -21,6 +21,14 @@ export const mediaItems: MediaItem[] = [
   },
 ];
 
+export function youtubePlaylistId(url: string): string | null {
+  try {
+    return new URL(url).searchParams.get("list");
+  } catch {
+    return null;
+  }
+}
+
 export function youtubeEmbedUrl(url: string): string {
   try {
     const u = new URL(url);
