@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Trash2, Loader2, DownloadCloud, Play, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import {
@@ -28,6 +28,14 @@ function embedSrc(item: { type: MediaType; url: string }): string {
   if (item.type === "spotify") return spotifyEmbedUrl(item.url);
   return applePodcastEmbedUrl(item.url);
 }
+
+type Tab = "courses" | "videos" | "podcasts";
+
+const emptyCopy: Record<Tab, string> = {
+  courses: "No courses yet — add a YouTube playlist and tick “Track as course”.",
+  videos: "No videos yet.",
+  podcasts: "No podcasts yet.",
+};
 
 export default function MediaPage() {
   const [items, setItems] = useState<Item[]>([]);
@@ -148,6 +156,23 @@ export default function MediaPage() {
   const courses = items.filter((i) => i.type === "youtube" && i.is_course);
   const videos = items.filter((i) => i.type === "youtube" && !i.is_course);
   const audio = items.filter((i) => i.type !== "youtube");
+
+  const [tab, setTab] = useState<Tab>("courses");
+  const tabPicked = useRef(false);
+
+  // Land on the first non-empty tab until the user picks one themselves.
+  useEffect(() => {
+    if (tabPicked.current || loading) return;
+    if (courses.length) setTab("courses");
+    else if (videos.length) setTab("videos");
+    else if (audio.length) setTab("podcasts");
+  }, [loading, courses.length, videos.length, audio.length]);
+
+  const tabs: { key: Tab; label: string; count: number }[] = [
+    { key: "courses", label: "Courses", count: courses.length },
+    { key: "videos", label: "Videos", count: videos.length },
+    { key: "podcasts", label: "Podcasts", count: audio.length },
+  ];
 
   const lessonsByCourse = useMemo(() => {
     const map = new Map<string, Lesson[]>();
@@ -272,12 +297,40 @@ export default function MediaPage() {
           </button>
         </div>
       ) : (
-        <>
-          {courses.length > 0 && (
-            <section className="space-y-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-text-faint">
-                Courses
-              </h2>
+        <div className="space-y-5">
+          <div className="flex gap-1 rounded-xl border border-border bg-bg-sunken/50 p-1">
+            {tabs.map((t) => {
+              const active = tab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => {
+                    tabPicked.current = true;
+                    setTab(t.key);
+                  }}
+                  className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                    active
+                      ? "bg-accent text-white shadow-sm"
+                      : "text-text-muted hover:bg-bg-sunken hover:text-text"
+                  }`}
+                >
+                  {t.label}
+                  {t.count > 0 && (
+                    <span
+                      className={`text-xs tabular-nums ${
+                        active ? "text-white/70" : "text-text-faint"
+                      }`}
+                    >
+                      {t.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {tab === "courses" ? (
+            courses.length > 0 ? (
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 {courses.map((item) => (
                   <CourseCard
@@ -289,34 +342,39 @@ export default function MediaPage() {
                   />
                 ))}
               </div>
-            </section>
-          )}
-          {videos.length > 0 && (
-            <section className="space-y-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-text-faint">
-                Videos
-              </h2>
+            ) : (
+              <EmptyTab tab="courses" />
+            )
+          ) : tab === "videos" ? (
+            videos.length > 0 ? (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {videos.map((item) => (
                   <MediaCard key={item.id} item={item} onRemove={removeItem} />
                 ))}
               </div>
-            </section>
+            ) : (
+              <EmptyTab tab="videos" />
+            )
+          ) : audio.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {audio.map((item) => (
+                <MediaCard key={item.id} item={item} onRemove={removeItem} audio />
+              ))}
+            </div>
+          ) : (
+            <EmptyTab tab="podcasts" />
           )}
-          {audio.length > 0 && (
-            <section className="space-y-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-text-faint">
-                Podcasts
-              </h2>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {audio.map((item) => (
-                  <MediaCard key={item.id} item={item} onRemove={removeItem} audio />
-                ))}
-              </div>
-            </section>
-          )}
-        </>
+        </div>
       )}
+    </div>
+  );
+}
+
+function EmptyTab({ tab }: { tab: Tab }) {
+  return (
+    <div className="flex flex-col items-center gap-2 py-14 text-text-muted">
+      <Play size={26} className="text-text-faint" />
+      <p className="text-sm">{emptyCopy[tab]}</p>
     </div>
   );
 }

@@ -163,23 +163,32 @@ export default function BlogPage() {
         </button>
       </header>
 
-      <div className="flex gap-1 border-b border-border">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
-              tab === t.key
-                ? "border-accent text-text"
-                : "border-transparent text-text-muted hover:text-text"
-            }`}
-          >
-            {t.label}
-            {t.count > 0 && (
-              <span className="ml-1.5 text-xs text-text-faint">{t.count}</span>
-            )}
-          </button>
-        ))}
+      <div className="flex gap-1 rounded-xl border border-border bg-bg-sunken/50 p-1">
+        {tabs.map((t) => {
+          const active = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                active
+                  ? "bg-accent text-white shadow-sm"
+                  : "text-text-muted hover:bg-bg-sunken hover:text-text"
+              }`}
+            >
+              {t.label}
+              {t.count > 0 && (
+                <span
+                  className={`text-xs tabular-nums ${
+                    active ? "text-white/70" : "text-text-faint"
+                  }`}
+                >
+                  {t.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {status === "loading" ? (
