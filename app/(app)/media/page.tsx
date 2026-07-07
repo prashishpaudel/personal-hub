@@ -1,7 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Trash2, Loader2, DownloadCloud, Play, Check } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Loader2,
+  DownloadCloud,
+  Play,
+  Check,
+  ChevronDown,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import {
   mediaItems as defaultMedia,
@@ -331,7 +339,7 @@ export default function MediaPage() {
 
           {tab === "courses" ? (
             courses.length > 0 ? (
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
                 {courses.map((item) => (
                   <CourseCard
                     key={item.id}
@@ -399,6 +407,7 @@ function CourseCard({
   const initial =
     lessons.find((l) => !l.watched)?.video_id ?? lessons[0]?.video_id ?? null;
   const [active, setActive] = useState<string | null>(initial);
+  const [open, setOpen] = useState(false);
   const videoId = active ?? initial;
 
   const src =
@@ -449,8 +458,21 @@ function CourseCard({
             </div>
           </div>
 
-          <ul className="max-h-64 overflow-y-auto border-t border-border">
-            {lessons.map((l, i) => {
+          <button
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            className="flex w-full items-center justify-between border-t border-border px-3 py-2 text-sm font-medium text-text-muted transition-colors hover:bg-bg-sunken hover:text-text"
+          >
+            Lessons
+            <ChevronDown
+              size={15}
+              className={`transition-transform ${open ? "" : "-rotate-90"}`}
+            />
+          </button>
+
+          {open && (
+            <ul className="max-h-64 overflow-y-auto border-t border-border">
+              {lessons.map((l, i) => {
               const isActive = videoId === l.video_id;
               return (
                 <li
@@ -488,7 +510,8 @@ function CourseCard({
                 </li>
               );
             })}
-          </ul>
+            </ul>
+          )}
         </>
       )}
     </div>
