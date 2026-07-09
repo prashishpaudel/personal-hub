@@ -26,6 +26,7 @@ import {
   Plus,
   StickyNote,
   Text,
+  Trash2,
   X,
 } from "lucide-react";
 import {
@@ -97,16 +98,19 @@ function ItemText({
   );
 }
 
+// Compact board preview — click to open the editor modal (Keep-style).
 function StickyCard({
   sticky,
   onPatch,
   onColor,
   onDelete,
+  onOpen,
 }: {
   sticky: Sticky;
   onPatch: (id: string, patch: Partial<Sticky>) => void;
   onColor: (id: string, color: StickyColor) => void;
   onDelete: (sticky: Sticky) => void;
+  onOpen: (id: string) => void;
 }) {
   const {
     attributes,
@@ -116,53 +120,9 @@ function StickyCard({
     transition,
     isDragging,
   } = useSortable({ id: sticky.id });
-  const areaRef = useRef<HTMLTextAreaElement>(null);
-  const [focusItem, setFocusItem] = useState<string | null>(null);
 
-  // Grow the textarea with its content.
-  const resize = useCallback(() => {
-    const el = areaRef.current;
-    if (!el) return;
-    el.style.height = "0";
-    el.style.height = `${el.scrollHeight}px`;
-  }, []);
-
-  useEffect(() => {
-    resize();
-  }, [resize]);
-
-  function setItems(items: StickyItem[]) {
-    onPatch(sticky.id, { items });
-  }
-
-  function editItem(itemId: string, text: string) {
-    setItems(
-      sticky.items.map((i) => (i.id === itemId ? { ...i, text } : i))
-    );
-  }
-
-  function tickItem(itemId: string) {
-    setItems(
-      sticky.items.map((i) => (i.id === itemId ? { ...i, done: !i.done } : i))
-    );
-  }
-
-  function addItemAfter(itemId: string) {
-    const idx = sticky.items.findIndex((i) => i.id === itemId);
-    const fresh = newItem();
-    const next = [...sticky.items];
-    next.splice(idx + 1, 0, fresh);
-    setItems(next);
-    setFocusItem(fresh.id);
-  }
-
-  function removeItem(itemId: string) {
-    const idx = sticky.items.findIndex((i) => i.id === itemId);
-    const next = sticky.items.filter((i) => i.id !== itemId);
-    setItems(next.length ? next : [newItem()]);
-    const prev = sticky.items[idx - 1];
-    if (prev) setFocusItem(prev.id);
-  }
+  const previewItems = sticky.items.slice(0, 5);
+  const moreCount = sticky.items.length - previewItems.length;
 
   return (
     <div
@@ -219,44 +179,227 @@ function StickyCard({
         </button>
       </div>
 
-      {sticky.kind === "text" ? (
-        <textarea
-          ref={areaRef}
-          defaultValue={sticky.body}
-          onInput={(e) => {
-            resize();
-            onPatch(sticky.id, { body: e.currentTarget.value });
-          }}
-          placeholder="Jot something…"
-          rows={2}
-          className="mt-1 w-full resize-none bg-transparent px-1 text-xs leading-relaxed outline-none placeholder:text-text-faint sm:text-sm"
-        />
-      ) : (
-        <ul className="mt-1 space-y-0.5 px-1">
-          {sticky.items.map((item) => (
-            <li key={item.id} className="flex items-start gap-2">
-              <button
-                onClick={() => tickItem(item.id)}
-                aria-label={item.done ? "Uncheck" : "Check"}
-                className={`mt-[3px] flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded border-2 transition-colors ${
-                  item.done
-                    ? "border-accent bg-accent text-white"
-                    : "border-text hover:border-accent"
-                }`}
-              >
-                {item.done && <Check size={11} strokeWidth={3} />}
-              </button>
-              <ItemText
-                item={item}
-                autoFocus={focusItem === item.id}
-                onChange={(text) => editItem(item.id, text)}
-                onEnter={() => addItemAfter(item.id)}
-                onEmptyBackspace={() => removeItem(item.id)}
-              />
-            </li>
+      <button
+        onClick={() => onOpen(sticky.id)}
+        className="mt-1 cursor-pointer px-1 pb-1 text-left"
+        aria-label="Open sticky"
+      >
+        {sticky.kind === "text" ? (
+          sticky.body.trim() ? (
+            <p className="line-clamp-6 whitespace-pre-wrap text-xs leading-relaxed sm:text-sm">
+              {sticky.body}
+            </p>
+          ) : (
+            <p className="text-xs text-text-faint sm:text-sm">Empty note</p>
+          )
+        ) : (
+          <ul className="space-y-0.5">
+            {previewItems.map((item) => (
+              <li key={item.id} className="flex items-start gap-2">
+                <span
+                  className={`mt-[3px] flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 ${
+                    item.done
+                      ? "border-accent bg-accent text-white"
+                      : "border-text"
+                  }`}
+                >
+                  {item.done && <Check size={11} strokeWidth={3} />}
+                </span>
+                <span
+                  className={`min-w-0 break-words text-xs leading-relaxed sm:text-sm ${
+                    item.done ? "text-text-faint line-through" : ""
+                  }`}
+                >
+                  {item.text || (
+                    <span className="text-text-faint">List item</span>
+                  )}
+                </span>
+              </li>
+            ))}
+            {moreCount > 0 && (
+              <li className="pl-6 text-[11px] text-text-faint">
+                +{moreCount} more
+              </li>
+            )}
+          </ul>
+        )}
+      </button>
+    </div>
+  );
+}
+
+// Full edit view — Keep-style modal over the board.
+function StickyModal({
+  sticky,
+  onPatch,
+  onColor,
+  onDelete,
+  onClose,
+}: {
+  sticky: Sticky;
+  onPatch: (id: string, patch: Partial<Sticky>) => void;
+  onColor: (id: string, color: StickyColor) => void;
+  onDelete: (sticky: Sticky) => void;
+  onClose: () => void;
+}) {
+  const areaRef = useRef<HTMLTextAreaElement>(null);
+  const [focusItem, setFocusItem] = useState<string | null>(null);
+
+  const resize = useCallback(() => {
+    const el = areaRef.current;
+    if (!el) return;
+    el.style.height = "0";
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+
+  useEffect(() => {
+    resize();
+  }, [resize]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  function setItems(items: StickyItem[]) {
+    onPatch(sticky.id, { items });
+  }
+
+  function editItem(itemId: string, text: string) {
+    setItems(sticky.items.map((i) => (i.id === itemId ? { ...i, text } : i)));
+  }
+
+  function tickItem(itemId: string) {
+    setItems(
+      sticky.items.map((i) => (i.id === itemId ? { ...i, done: !i.done } : i))
+    );
+  }
+
+  function addItemAfter(itemId?: string) {
+    const idx = itemId
+      ? sticky.items.findIndex((i) => i.id === itemId)
+      : sticky.items.length - 1;
+    const fresh = newItem();
+    const next = [...sticky.items];
+    next.splice(idx + 1, 0, fresh);
+    setItems(next);
+    setFocusItem(fresh.id);
+  }
+
+  function removeItem(itemId: string) {
+    const idx = sticky.items.findIndex((i) => i.id === itemId);
+    const next = sticky.items.filter((i) => i.id !== itemId);
+    setItems(next.length ? next : [newItem()]);
+    const prev = sticky.items[idx - 1];
+    if (prev) setFocusItem(prev.id);
+  }
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+      <button
+        aria-label="Close"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        style={{ background: `var(--sticky-${sticky.color})` }}
+        className="relative flex max-h-[85dvh] w-full max-w-lg flex-col rounded-2xl border border-border shadow-xl"
+      >
+        <div className="flex items-center gap-1.5 px-4 pt-3">
+          {COLORS.map((c) => (
+            <button
+              key={c}
+              onClick={() => onColor(sticky.id, c)}
+              aria-label={`Color ${c}`}
+              style={{ background: `var(--sticky-${c})` }}
+              className={`h-5 w-5 cursor-pointer rounded-full border transition-transform hover:scale-110 ${
+                sticky.color === c
+                  ? "border-2 border-text-muted"
+                  : "border-border-strong"
+              }`}
+            />
           ))}
-        </ul>
-      )}
+          <span className="flex-1" />
+          <button
+            onClick={() => onPatch(sticky.id, { pinned: !sticky.pinned })}
+            aria-label={sticky.pinned ? "Unpin" : "Pin"}
+            className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg transition-colors hover:bg-black/5 ${
+              sticky.pinned ? "text-accent-text" : "text-text-muted"
+            }`}
+          >
+            <Pin size={16} className={sticky.pinned ? "fill-current" : ""} />
+          </button>
+          <button
+            onClick={() => onDelete(sticky)}
+            aria-label="Delete"
+            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-black/5 hover:text-accent-text"
+          >
+            <Trash2 size={16} />
+          </button>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-black/5"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto px-4 pb-4 pt-2">
+          {sticky.kind === "text" ? (
+            <textarea
+              ref={areaRef}
+              autoFocus
+              defaultValue={sticky.body}
+              onInput={(e) => {
+                resize();
+                onPatch(sticky.id, { body: e.currentTarget.value });
+              }}
+              placeholder="Jot something…"
+              rows={4}
+              className="w-full resize-none bg-transparent text-sm leading-relaxed outline-none placeholder:text-text-faint sm:text-[15px]"
+            />
+          ) : (
+            <>
+              <ul className="space-y-1">
+                {sticky.items.map((item) => (
+                  <li key={item.id} className="flex items-start gap-2">
+                    <button
+                      onClick={() => tickItem(item.id)}
+                      aria-label={item.done ? "Uncheck" : "Check"}
+                      className={`mt-[3px] flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded border-2 transition-colors ${
+                        item.done
+                          ? "border-accent bg-accent text-white"
+                          : "border-text hover:border-accent"
+                      }`}
+                    >
+                      {item.done && <Check size={11} strokeWidth={3} />}
+                    </button>
+                    <ItemText
+                      item={item}
+                      autoFocus={focusItem === item.id}
+                      onChange={(text) => editItem(item.id, text)}
+                      onEnter={() => addItemAfter(item.id)}
+                      onEmptyBackspace={() => removeItem(item.id)}
+                    />
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => addItemAfter()}
+                className="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-text-muted hover:text-text"
+              >
+                <Plus size={14} /> List item
+              </button>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -268,6 +411,7 @@ export default function StickiesPage() {
   const [message, setMessage] = useState("");
   const [creating, setCreating] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const saveTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
@@ -305,6 +449,7 @@ export default function StickiesPage() {
       const top = stickies.length ? stickies[0].position - 1 : 0;
       const sticky = await createSticky(top, kind);
       setStickies((cur) => [sticky, ...cur]);
+      setOpenId(sticky.id);
     } catch (err) {
       setStatus("error");
       setMessage(err instanceof Error ? err.message : "Failed to create.");
@@ -462,6 +607,7 @@ export default function StickiesPage() {
                         onPatch={queuePatch}
                         onColor={setColor}
                         onDelete={remove}
+                        onOpen={setOpenId}
                       />
                     ))}
                   </div>
@@ -494,6 +640,7 @@ export default function StickiesPage() {
                         onPatch={queuePatch}
                         onColor={setColor}
                         onDelete={remove}
+                        onOpen={setOpenId}
                       />
                     ))}
                   </div>
@@ -503,6 +650,21 @@ export default function StickiesPage() {
           )}
         </div>
       )}
+
+      {openId &&
+        (() => {
+          const open = stickies.find((s) => s.id === openId);
+          if (!open) return null;
+          return (
+            <StickyModal
+              sticky={open}
+              onPatch={queuePatch}
+              onColor={setColor}
+              onDelete={remove}
+              onClose={() => setOpenId(null)}
+            />
+          );
+        })()}
     </div>
   );
 }
