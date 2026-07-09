@@ -688,6 +688,9 @@ export default function StickiesPage() {
           >
             All
           </button>
+          {orderedSections.length > 0 && (
+            <span className="mx-1 h-5 w-px shrink-0 bg-border-strong" />
+          )}
           {orderedSections.map((section) => {
             const isActive = active === section.id;
             return (
