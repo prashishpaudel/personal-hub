@@ -235,6 +235,7 @@ create table if not exists public.sticky_notes (
   kind text not null default 'text' check (kind in ('text', 'list')),
   items jsonb not null default '[]', -- checklist rows: [{ id, text, done }]
   color text not null default 'plain',
+  pinned boolean not null default false,
   position double precision not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

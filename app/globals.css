@@ -167,6 +167,14 @@ body {
   --sticky-sky: #21333f;
 }
 
+/* Sticky card controls are hover-revealed on desktop; touch has no hover,
+   so keep them always visible there. */
+@media (hover: none) {
+  .sticky-ctl {
+    opacity: 1 !important;
+  }
+}
+
 /* Tiptap editor (blog) — placeholder text for the empty document */
 .tiptap p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);

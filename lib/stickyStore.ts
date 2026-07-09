@@ -14,10 +14,11 @@ export type Sticky = {
   kind: StickyKind;
   items: StickyItem[];
   color: StickyColor;
+  pinned: boolean;
   position: number;
 };
 
-const cols = "id,body,kind,items,color,position";
+const cols = "id,body,kind,items,color,pinned,position";
 
 function client() {
   if (!supabase) throw new Error("Add Supabase env vars to use stickies.");
@@ -50,7 +51,9 @@ export async function createSticky(
 
 export async function updateSticky(
   id: string,
-  patch: Partial<Pick<Sticky, "body" | "kind" | "items" | "color" | "position">>
+  patch: Partial<
+    Pick<Sticky, "body" | "kind" | "items" | "color" | "pinned" | "position">
+  >
 ): Promise<void> {
   const { error } = await client()
     .from("sticky_notes")

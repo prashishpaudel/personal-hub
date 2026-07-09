@@ -22,6 +22,7 @@ import {
   GripVertical,
   ListChecks,
   Loader2,
+  Pin,
   Plus,
   StickyNote,
   Text,
@@ -129,7 +130,7 @@ function StickyCard({
           {...attributes}
           {...listeners}
           aria-label="Drag"
-          className="flex h-6 w-6 cursor-grab items-center justify-center rounded text-text-faint opacity-0 transition-opacity hover:text-text-muted group-hover:opacity-100 active:cursor-grabbing"
+          className="sticky-ctl flex h-6 w-6 cursor-grab touch-none items-center justify-center rounded text-text-faint opacity-0 transition-opacity hover:text-text-muted group-hover:opacity-100 active:cursor-grabbing"
         >
           <GripVertical size={14} />
         </button>
@@ -140,7 +141,7 @@ function StickyCard({
             onClick={() => onColor(sticky.id, c)}
             aria-label={`Color ${c}`}
             style={{ background: `var(--sticky-${c})` }}
-            className={`h-4 w-4 cursor-pointer rounded-full border opacity-0 transition-opacity hover:scale-110 group-hover:opacity-100 ${
+            className={`sticky-ctl h-4 w-4 cursor-pointer rounded-full border opacity-0 transition-opacity hover:scale-110 group-hover:opacity-100 ${
               sticky.color === c
                 ? "border-2 border-text-muted"
                 : "border-border-strong"
@@ -148,9 +149,20 @@ function StickyCard({
           />
         ))}
         <button
+          onClick={() => onPatch(sticky.id, { pinned: !sticky.pinned })}
+          aria-label={sticky.pinned ? "Unpin" : "Pin"}
+          className={`sticky-ctl ml-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded transition-opacity group-hover:opacity-100 ${
+            sticky.pinned
+              ? "text-accent-text opacity-100"
+              : "text-text-faint opacity-0 hover:text-text-muted"
+          }`}
+        >
+          <Pin size={14} className={sticky.pinned ? "fill-current" : ""} />
+        </button>
+        <button
           onClick={() => onDelete(sticky)}
           aria-label="Delete"
-          className="ml-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded text-text-faint opacity-0 transition-opacity hover:text-accent-text group-hover:opacity-100"
+          className="sticky-ctl flex h-6 w-6 cursor-pointer items-center justify-center rounded text-text-faint opacity-0 transition-opacity hover:text-accent-text group-hover:opacity-100"
         >
           <X size={14} />
         </button>
@@ -304,14 +316,20 @@ export default function StickiesPage() {
     deleteSticky(sticky.id).catch(() => {});
   }
 
-  function onDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    setStickies((cur) => {
-      const from = cur.findIndex((s) => s.id === active.id);
-      const to = cur.findIndex((s) => s.id === over.id);
-      const next = arrayMove(cur, from, to);
-      // New position = midpoint of the drop neighbors.
+  const byPosition = (a: Sticky, b: Sticky) => a.position - b.position;
+  const pinned = stickies.filter((s) => s.pinned).sort(byPosition);
+  const others = stickies.filter((s) => !s.pinned).sort(byPosition);
+
+  // Reorder within a group; the dragged card takes the midpoint of its
+  // drop neighbors' positions.
+  function makeDragEnd(group: Sticky[]) {
+    return (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const from = group.findIndex((s) => s.id === active.id);
+      const to = group.findIndex((s) => s.id === over.id);
+      if (from < 0 || to < 0) return;
+      const next = arrayMove(group, from, to);
       const prev = next[to - 1]?.position;
       const after = next[to + 1]?.position;
       let position: number;
@@ -319,10 +337,11 @@ export default function StickiesPage() {
       else if (prev === undefined) position = after! - 1;
       else if (after === undefined) position = prev + 1;
       else position = (prev + after) / 2;
-      next[to] = { ...next[to], position };
+      setStickies((cur) =>
+        cur.map((s) => (s.id === active.id ? { ...s, position } : s))
+      );
       updateSticky(String(active.id), { position }).catch(() => {});
-      return next;
-    });
+    };
   }
 
   return (
@@ -380,28 +399,69 @@ export default function StickiesPage() {
           <p className="text-sm">No stickies — jot something.</p>
         </div>
       ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={onDragEnd}
-        >
-          <SortableContext
-            items={stickies.map((s) => s.id)}
-            strategy={rectSortingStrategy}
-          >
-            <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {stickies.map((sticky) => (
-                <StickyCard
-                  key={sticky.id}
-                  sticky={sticky}
-                  onPatch={queuePatch}
-                  onColor={setColor}
-                  onDelete={remove}
-                />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
+        <div className="space-y-6">
+          {pinned.length > 0 && (
+            <section className="space-y-2">
+              <h2 className="text-[10px] font-semibold uppercase tracking-widest text-text-faint">
+                Pinned
+              </h2>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={makeDragEnd(pinned)}
+              >
+                <SortableContext
+                  items={pinned.map((s) => s.id)}
+                  strategy={rectSortingStrategy}
+                >
+                  <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                    {pinned.map((sticky) => (
+                      <StickyCard
+                        key={sticky.id}
+                        sticky={sticky}
+                        onPatch={queuePatch}
+                        onColor={setColor}
+                        onDelete={remove}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            </section>
+          )}
+
+          {others.length > 0 && (
+            <section className="space-y-2">
+              {pinned.length > 0 && (
+                <h2 className="text-[10px] font-semibold uppercase tracking-widest text-text-faint">
+                  Others
+                </h2>
+              )}
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={makeDragEnd(others)}
+              >
+                <SortableContext
+                  items={others.map((s) => s.id)}
+                  strategy={rectSortingStrategy}
+                >
+                  <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                    {others.map((sticky) => (
+                      <StickyCard
+                        key={sticky.id}
+                        sticky={sticky}
+                        onPatch={queuePatch}
+                        onColor={setColor}
+                        onDelete={remove}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            </section>
+          )}
+        </div>
       )}
     </div>
   );
