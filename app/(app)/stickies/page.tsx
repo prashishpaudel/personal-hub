@@ -22,6 +22,7 @@ import {
   GripVertical,
   ListChecks,
   Loader2,
+  Pencil,
   Pin,
   Plus,
   StickyNote,
@@ -30,13 +31,18 @@ import {
   X,
 } from "lucide-react";
 import {
+  createSection,
   createSticky,
+  deleteSection,
   deleteSticky,
+  listSections,
   listStickies,
+  renameSection,
   updateSticky,
   type Sticky,
   type StickyColor,
   type StickyItem,
+  type StickySection,
 } from "@/lib/stickyStore";
 import { useDialog } from "@/components/DialogProvider";
 
@@ -231,12 +237,14 @@ function StickyCard({
 // Full edit view — Keep-style modal over the board.
 function StickyModal({
   sticky,
+  sections,
   onPatch,
   onColor,
   onDelete,
   onClose,
 }: {
   sticky: Sticky;
+  sections: StickySection[];
   onPatch: (id: string, patch: Partial<Sticky>) => void;
   onColor: (id: string, color: StickyColor) => void;
   onDelete: (sticky: Sticky) => void;
@@ -399,14 +407,36 @@ function StickyModal({
             </>
           )}
         </div>
+
+        {sections.length > 0 && (
+          <div className="flex items-center gap-2 border-t border-border px-4 py-2.5">
+            <span className="text-xs text-text-faint">Section</span>
+            <select
+              value={sticky.sectionId ?? ""}
+              onChange={(e) =>
+                onPatch(sticky.id, { sectionId: e.target.value || null })
+              }
+              className="cursor-pointer rounded-lg border border-border bg-transparent px-2 py-1 text-xs outline-none focus:border-border-strong"
+            >
+              <option value="">None</option>
+              {sections.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 export default function StickiesPage() {
-  const { confirm } = useDialog();
+  const { confirm, prompt } = useDialog();
   const [stickies, setStickies] = useState<Sticky[]>([]);
+  const [sections, setSections] = useState<StickySection[]>([]);
+  const [active, setActive] = useState<string>("all");
   const [status, setStatus] = useState<"loading" | "idle" | "error">("loading");
   const [message, setMessage] = useState("");
   const [creating, setCreating] = useState(false);
@@ -431,9 +461,10 @@ export default function StickiesPage() {
   );
 
   useEffect(() => {
-    listStickies()
-      .then((rows) => {
+    Promise.all([listStickies(), listSections()])
+      .then(([rows, secs]) => {
         setStickies(rows);
+        setSections(secs);
         setStatus("idle");
       })
       .catch((err) => {
@@ -446,8 +477,14 @@ export default function StickiesPage() {
     setMenuOpen(false);
     setCreating(true);
     try {
-      const top = stickies.length ? stickies[0].position - 1 : 0;
-      const sticky = await createSticky(top, kind);
+      const top = stickies.length
+        ? Math.min(...stickies.map((s) => s.position)) - 1
+        : 0;
+      const sticky = await createSticky(
+        top,
+        kind,
+        active === "all" ? null : active
+      );
       setStickies((cur) => [sticky, ...cur]);
       setOpenId(sticky.id);
     } catch (err) {
@@ -501,9 +538,62 @@ export default function StickiesPage() {
     deleteSticky(sticky.id).catch(() => {});
   }
 
+  async function addSection() {
+    const name = (
+      await prompt({ title: "New section", placeholder: "Section name" })
+    )?.trim();
+    if (!name) return;
+    try {
+      const last = sections[sections.length - 1];
+      const section = await createSection(name, (last?.position ?? 0) + 1);
+      setSections((cur) => [...cur, section]);
+      setActive(section.id);
+    } catch (err) {
+      setStatus("error");
+      setMessage(err instanceof Error ? err.message : "Failed to add section.");
+    }
+  }
+
+  async function editSection(section: StickySection) {
+    const name = (
+      await prompt({
+        title: "Rename section",
+        defaultValue: section.name,
+        confirmLabel: "Rename",
+      })
+    )?.trim();
+    if (!name || name === section.name) return;
+    setSections((cur) =>
+      cur.map((s) => (s.id === section.id ? { ...s, name } : s))
+    );
+    renameSection(section.id, name).catch(() => {});
+  }
+
+  async function removeSection(section: StickySection) {
+    const ok = await confirm({
+      title: "Delete section",
+      message: `Delete "${section.name}"? Its stickies move back to All.`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
+    setSections((cur) => cur.filter((s) => s.id !== section.id));
+    setStickies((cur) =>
+      cur.map((s) =>
+        s.sectionId === section.id ? { ...s, sectionId: null } : s
+      )
+    );
+    setActive("all");
+    deleteSection(section.id).catch(() => {});
+  }
+
   const byPosition = (a: Sticky, b: Sticky) => a.position - b.position;
-  const pinned = stickies.filter((s) => s.pinned).sort(byPosition);
-  const others = stickies.filter((s) => !s.pinned).sort(byPosition);
+  const inView =
+    active === "all"
+      ? stickies
+      : stickies.filter((s) => s.sectionId === active);
+  const pinned = inView.filter((s) => s.pinned).sort(byPosition);
+  const others = inView.filter((s) => !s.pinned).sort(byPosition);
 
   // Reorder within a group; the dragged card takes the midpoint of its
   // drop neighbors' positions.
@@ -572,16 +662,77 @@ export default function StickiesPage() {
         </div>
       </header>
 
+      {status === "idle" && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            onClick={() => setActive("all")}
+            className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+              active === "all"
+                ? "bg-accent text-white shadow-sm"
+                : "border border-border text-text-muted hover:bg-bg-sunken hover:text-text"
+            }`}
+          >
+            All
+          </button>
+          {sections.map((section) => {
+            const isActive = active === section.id;
+            return (
+              <span key={section.id} className="flex items-center">
+                <button
+                  onClick={() => setActive(section.id)}
+                  className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-accent text-white shadow-sm"
+                      : "border border-border text-text-muted hover:bg-bg-sunken hover:text-text"
+                  }`}
+                >
+                  {section.name}
+                </button>
+                {isActive && (
+                  <span className="ml-0.5 flex items-center">
+                    <button
+                      onClick={() => editSection(section)}
+                      aria-label="Rename section"
+                      className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg text-text-faint hover:bg-bg-sunken hover:text-text"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                    <button
+                      onClick={() => removeSection(section)}
+                      aria-label="Delete section"
+                      className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg text-text-faint hover:bg-bg-sunken hover:text-accent-text"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </span>
+                )}
+              </span>
+            );
+          })}
+          <button
+            onClick={addSection}
+            aria-label="New section"
+            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-dashed border-border text-text-faint hover:bg-bg-sunken hover:text-text"
+          >
+            <Plus size={15} />
+          </button>
+        </div>
+      )}
+
       {status === "loading" ? (
         <div className="flex items-center gap-2 py-10 text-sm text-text-muted">
           <Loader2 size={16} className="animate-spin" /> Loading…
         </div>
       ) : status === "error" ? (
         <p className="py-10 text-center text-sm text-text-muted">{message}</p>
-      ) : stickies.length === 0 ? (
+      ) : inView.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-14 text-text-muted">
           <StickyNote size={26} />
-          <p className="text-sm">No stickies — jot something.</p>
+          <p className="text-sm">
+            {active === "all"
+              ? "No stickies — jot something."
+              : "Nothing in this section yet."}
+          </p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -658,6 +809,7 @@ export default function StickiesPage() {
           return (
             <StickyModal
               sticky={open}
+              sections={sections}
               onPatch={queuePatch}
               onColor={setColor}
               onDelete={remove}

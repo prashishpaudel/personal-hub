@@ -226,6 +226,43 @@ create policy "Owner can delete saved"
   using (auth.uid() = user_id);
 
 -- ---------------------------------------------------------------------------
+-- Sticky sections — user-defined groups shown as tabs on the sticky board
+-- ---------------------------------------------------------------------------
+create table if not exists public.sticky_sections (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  name text not null,
+  position double precision not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists sticky_sections_user_position_idx
+  on public.sticky_sections (user_id, position);
+
+alter table public.sticky_sections enable row level security;
+
+drop policy if exists "Owner can read sticky sections" on public.sticky_sections;
+create policy "Owner can read sticky sections"
+  on public.sticky_sections for select to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "Owner can insert sticky sections" on public.sticky_sections;
+create policy "Owner can insert sticky sections"
+  on public.sticky_sections for insert to authenticated
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Owner can update sticky sections" on public.sticky_sections;
+create policy "Owner can update sticky sections"
+  on public.sticky_sections for update to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Owner can delete sticky sections" on public.sticky_sections;
+create policy "Owner can delete sticky sections"
+  on public.sticky_sections for delete to authenticated
+  using (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------------
 -- Sticky notes — quick disposable cards on a drag-sortable board
 -- ---------------------------------------------------------------------------
 create table if not exists public.sticky_notes (
@@ -236,6 +273,7 @@ create table if not exists public.sticky_notes (
   items jsonb not null default '[]', -- checklist rows: [{ id, text, done }]
   color text not null default 'plain',
   pinned boolean not null default false,
+  section_id uuid references public.sticky_sections (id) on delete set null,
   position double precision not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
