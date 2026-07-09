@@ -6,11 +6,15 @@ import { useEffect, useState } from "react";
 import {
   LogOut,
   Moon,
+  MoreHorizontal,
   Sun,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
 import { navItems } from "@/lib/nav";
+
+// Mobile tab bar shows these five; the rest live under "More".
+const mobilePrimary = ["/", "/stickies", "/feed", "/garden", "/media"];
 
 const themeKey = "personal-hub:theme";
 const railKey = "personal-hub:rail-collapsed";
@@ -31,6 +35,12 @@ export default function AppShell({
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [mounted, setMounted] = useState(false);
   const [collapsed, setCollapsed] = useState(true);
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  // Close the More sheet on navigation.
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(themeKey) as
@@ -179,33 +189,91 @@ export default function AppShell({
         </main>
       </div>
 
-      {/* Mobile bottom tab bar — the super-app signature */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex items-stretch border-t border-border bg-bg-elevated/95 backdrop-blur md:hidden">
-        {navItems.map((item) => {
-          const active = isActive(pathname, item.href);
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors ${
-                active ? "text-accent-text" : "text-text-faint"
-              }`}
-            >
-              <Icon size={21} strokeWidth={active ? 2.4 : 2} />
-              {item.label}
-            </Link>
+      {/* Mobile bottom tab bar — five primary tabs, the rest under More */}
+      {(() => {
+        const primary = navItems
+          .filter((i) => mobilePrimary.includes(i.href))
+          .sort(
+            (a, b) =>
+              mobilePrimary.indexOf(a.href) - mobilePrimary.indexOf(b.href)
           );
-        })}
-        <button
-          onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-          aria-label="Toggle theme"
-          className="flex flex-col items-center gap-1 px-3 py-2.5 text-[11px] font-medium text-text-faint"
-        >
-          {mounted && theme === "light" ? <Moon size={21} /> : <Sun size={21} />}
-          Theme
-        </button>
-      </nav>
+        const overflow = navItems.filter(
+          (i) => !mobilePrimary.includes(i.href)
+        );
+        const moreActive = overflow.some((i) => isActive(pathname, i.href));
+        return (
+          <>
+            {moreOpen && (
+              <div className="fixed inset-0 z-30 md:hidden">
+                <button
+                  aria-label="Close"
+                  onClick={() => setMoreOpen(false)}
+                  className="absolute inset-0 bg-black/30"
+                />
+                <div className="absolute bottom-20 right-3 w-44 overflow-hidden rounded-2xl border border-border bg-bg-elevated shadow-xl">
+                  {overflow.map((item) => {
+                    const active = isActive(pathname, item.href);
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors ${
+                          active
+                            ? "bg-accent-soft text-accent-text"
+                            : "text-text-muted hover:bg-bg-sunken"
+                        }`}
+                      >
+                        <Icon size={18} />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                  <button
+                    onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+                    className="flex w-full items-center gap-3 border-t border-border px-4 py-3 text-sm font-medium text-text-muted transition-colors hover:bg-bg-sunken"
+                  >
+                    {mounted && theme === "light" ? (
+                      <Moon size={18} />
+                    ) : (
+                      <Sun size={18} />
+                    )}
+                    {theme === "light" ? "Dark mode" : "Light mode"}
+                  </button>
+                </div>
+              </div>
+            )}
+            <nav className="fixed inset-x-0 bottom-0 z-30 flex items-stretch border-t border-border bg-bg-elevated/95 backdrop-blur md:hidden">
+              {primary.map((item) => {
+                const active = isActive(pathname, item.href);
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors ${
+                      active ? "text-accent-text" : "text-text-faint"
+                    }`}
+                  >
+                    <Icon size={21} strokeWidth={active ? 2.4 : 2} />
+                    {item.label}
+                  </Link>
+                );
+              })}
+              <button
+                onClick={() => setMoreOpen((v) => !v)}
+                aria-label="More sections"
+                className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors ${
+                  moreActive ? "text-accent-text" : "text-text-faint"
+                }`}
+              >
+                <MoreHorizontal size={21} strokeWidth={moreActive ? 2.4 : 2} />
+                More
+              </button>
+            </nav>
+          </>
+        );
+      })()}
     </div>
   );
 }

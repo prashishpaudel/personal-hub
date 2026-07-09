@@ -238,10 +238,10 @@ function StickyCard({
               <button
                 onClick={() => tickItem(item.id)}
                 aria-label={item.done ? "Uncheck" : "Check"}
-                className={`mt-[3px] flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded border transition-colors ${
+                className={`mt-[3px] flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded border-2 transition-colors ${
                   item.done
                     ? "border-accent bg-accent text-white"
-                    : "border-border-strong hover:border-accent"
+                    : "border-text hover:border-accent"
                 }`}
               >
                 {item.done && <Check size={11} strokeWidth={3} />}
