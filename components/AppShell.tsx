@@ -197,6 +197,14 @@ export default function AppShell({
             </Link>
           );
         })}
+        <button
+          onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+          aria-label="Toggle theme"
+          className="flex flex-col items-center gap-1 px-3 py-2.5 text-[11px] font-medium text-text-faint"
+        >
+          {mounted && theme === "light" ? <Moon size={21} /> : <Sun size={21} />}
+          Theme
+        </button>
       </nav>
     </div>
   );

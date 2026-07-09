@@ -46,6 +46,57 @@ function newItem(text = ""): StickyItem {
   return { id: crypto.randomUUID(), text, done: false };
 }
 
+// One list row's text — a textarea so long lines wrap, auto-grown to fit.
+function ItemText({
+  item,
+  autoFocus,
+  onChange,
+  onEnter,
+  onEmptyBackspace,
+}: {
+  item: StickyItem;
+  autoFocus: boolean;
+  onChange: (text: string) => void;
+  onEnter: () => void;
+  onEmptyBackspace: () => void;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  const resize = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "0";
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+
+  useEffect(() => {
+    resize();
+  }, [resize, item.text]);
+
+  return (
+    <textarea
+      ref={ref}
+      autoFocus={autoFocus}
+      value={item.text}
+      rows={1}
+      onChange={(e) => onChange(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          onEnter();
+        } else if (e.key === "Backspace" && item.text === "") {
+          e.preventDefault();
+          onEmptyBackspace();
+        }
+      }}
+      placeholder="List item"
+      className={`w-full resize-none bg-transparent text-xs leading-relaxed outline-none placeholder:text-text-faint sm:text-sm ${
+        item.done ? "text-text-faint line-through" : ""
+      }`}
+    />
+  );
+}
+
 function StickyCard({
   sticky,
   onPatch,
@@ -121,7 +172,7 @@ function StickyCard({
         transition,
         background: `var(--sticky-${sticky.color})`,
       }}
-      className={`group flex flex-col rounded-2xl border border-border p-3 ${
+      className={`group flex flex-col rounded-2xl border border-border p-2 sm:p-3 ${
         isDragging ? "z-10 opacity-80 shadow-lg" : ""
       }`}
     >
@@ -178,16 +229,16 @@ function StickyCard({
           }}
           placeholder="Jot something…"
           rows={2}
-          className="mt-1 w-full resize-none bg-transparent px-1 text-sm leading-relaxed outline-none placeholder:text-text-faint"
+          className="mt-1 w-full resize-none bg-transparent px-1 text-xs leading-relaxed outline-none placeholder:text-text-faint sm:text-sm"
         />
       ) : (
         <ul className="mt-1 space-y-0.5 px-1">
           {sticky.items.map((item) => (
-            <li key={item.id} className="flex items-center gap-2">
+            <li key={item.id} className="flex items-start gap-2">
               <button
                 onClick={() => tickItem(item.id)}
                 aria-label={item.done ? "Uncheck" : "Check"}
-                className={`flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded border transition-colors ${
+                className={`mt-[3px] flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded border transition-colors ${
                   item.done
                     ? "border-accent bg-accent text-white"
                     : "border-border-strong hover:border-accent"
@@ -195,23 +246,12 @@ function StickyCard({
               >
                 {item.done && <Check size={11} strokeWidth={3} />}
               </button>
-              <input
+              <ItemText
+                item={item}
                 autoFocus={focusItem === item.id}
-                value={item.text}
-                onChange={(e) => editItem(item.id, e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addItemAfter(item.id);
-                  } else if (e.key === "Backspace" && item.text === "") {
-                    e.preventDefault();
-                    removeItem(item.id);
-                  }
-                }}
-                placeholder="List item"
-                className={`w-full bg-transparent text-sm leading-relaxed outline-none placeholder:text-text-faint ${
-                  item.done ? "text-text-faint line-through" : ""
-                }`}
+                onChange={(text) => editItem(item.id, text)}
+                onEnter={() => addItemAfter(item.id)}
+                onEmptyBackspace={() => removeItem(item.id)}
               />
             </li>
           ))}
@@ -414,7 +454,7 @@ export default function StickiesPage() {
                   items={pinned.map((s) => s.id)}
                   strategy={rectSortingStrategy}
                 >
-                  <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  <div className="grid grid-cols-2 items-start gap-2 sm:gap-3 sm:grid-cols-3 lg:grid-cols-4">
                     {pinned.map((sticky) => (
                       <StickyCard
                         key={sticky.id}
@@ -446,7 +486,7 @@ export default function StickiesPage() {
                   items={others.map((s) => s.id)}
                   strategy={rectSortingStrategy}
                 >
-                  <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  <div className="grid grid-cols-2 items-start gap-2 sm:gap-3 sm:grid-cols-3 lg:grid-cols-4">
                     {others.map((sticky) => (
                       <StickyCard
                         key={sticky.id}
