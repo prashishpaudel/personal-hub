@@ -365,8 +365,20 @@ function StickyModal({
               autoFocus
               defaultValue={sticky.body}
               onInput={(e) => {
+                const el = e.currentTarget;
+                // "- " at the start of a line becomes a bullet.
+                const pos = el.selectionStart;
+                if (
+                  pos >= 2 &&
+                  el.value.slice(pos - 2, pos) === "- " &&
+                  (pos === 2 || el.value[pos - 3] === "\n")
+                ) {
+                  el.value =
+                    el.value.slice(0, pos - 2) + "• " + el.value.slice(pos);
+                  el.setSelectionRange(pos, pos);
+                }
                 resize();
-                onPatch(sticky.id, { body: e.currentTarget.value });
+                onPatch(sticky.id, { body: el.value });
               }}
               placeholder="Jot something…"
               rows={4}
