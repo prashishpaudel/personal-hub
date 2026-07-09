@@ -127,8 +127,11 @@ function StickyCard({
     isDragging,
   } = useSortable({ id: sticky.id });
 
-  const previewItems = sticky.items.slice(0, 5);
-  const moreCount = sticky.items.length - previewItems.length;
+  // Keep-style preview: completed items hide behind a "+N completed" line.
+  const unchecked = sticky.items.filter((i) => !i.done);
+  const doneCount = sticky.items.length - unchecked.length;
+  const previewItems = unchecked.slice(0, 8);
+  const moreCount = unchecked.length - previewItems.length;
 
   return (
     <div
@@ -192,7 +195,7 @@ function StickyCard({
       >
         {sticky.kind === "text" ? (
           sticky.body.trim() ? (
-            <p className="line-clamp-6 whitespace-pre-wrap text-xs leading-relaxed sm:text-sm">
+            <p className="line-clamp-[10] whitespace-pre-wrap text-xs leading-relaxed sm:text-sm">
               {sticky.body}
             </p>
           ) : (
@@ -202,20 +205,8 @@ function StickyCard({
           <ul className="space-y-0.5">
             {previewItems.map((item) => (
               <li key={item.id} className="flex items-start gap-2">
-                <span
-                  className={`mt-[3px] flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 ${
-                    item.done
-                      ? "border-accent bg-accent text-white"
-                      : "border-text"
-                  }`}
-                >
-                  {item.done && <Check size={11} strokeWidth={3} />}
-                </span>
-                <span
-                  className={`min-w-0 break-words text-xs leading-relaxed sm:text-sm ${
-                    item.done ? "text-text-faint line-through" : ""
-                  }`}
-                >
+                <span className="mt-[3px] flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 border-text" />
+                <span className="min-w-0 break-words text-xs leading-relaxed sm:text-sm">
                   {item.text || (
                     <span className="text-text-faint">List item</span>
                   )}
@@ -225,6 +216,12 @@ function StickyCard({
             {moreCount > 0 && (
               <li className="pl-6 text-[11px] text-text-faint">
                 +{moreCount} more
+              </li>
+            )}
+            {doneCount > 0 && (
+              <li className="flex items-center gap-2 pt-0.5 text-[11px] text-text-faint">
+                <Check size={12} strokeWidth={3} className="shrink-0" />
+                {doneCount} completed
               </li>
             )}
           </ul>
