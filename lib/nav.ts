@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   NotebookPen,
+  StickyNote,
   Sprout,
   PenLine,
   Rss,
@@ -28,6 +29,12 @@ export const navItems: NavItem[] = [
     label: "Notes",
     icon: NotebookPen,
     blurb: "Quick thoughts and scratch",
+  },
+  {
+    href: "/stickies",
+    label: "Stickies",
+    icon: StickyNote,
+    blurb: "Fast capture, throwaway",
   },
   {
     href: "/garden",

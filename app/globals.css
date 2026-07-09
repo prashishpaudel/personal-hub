@@ -149,6 +149,24 @@ body {
   margin: 2em 0;
 }
 
+/* Sticky note tints — resolved per theme */
+:root,
+[data-theme="light"] {
+  --sticky-plain: var(--bg-elevated);
+  --sticky-amber: #f2dda2;
+  --sticky-rose: #f3c9bd;
+  --sticky-sage: #d5e3b5;
+  --sticky-sky: #c3dcec;
+}
+
+[data-theme="dark"] {
+  --sticky-plain: var(--bg-elevated);
+  --sticky-amber: #40371c;
+  --sticky-rose: #442a23;
+  --sticky-sage: #2e3a20;
+  --sticky-sky: #21333f;
+}
+
 /* Tiptap editor (blog) — placeholder text for the empty document */
 .tiptap p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);

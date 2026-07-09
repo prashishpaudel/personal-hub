@@ -80,9 +80,6 @@ create table if not exists public.media_items (
   created_at timestamptz not null default now()
 );
 
--- Add course flag to existing installs.
-alter table public.media_items add column if not exists is_course boolean not null default false;
-
 create index if not exists media_items_user_idx
   on public.media_items (user_id, created_at desc);
 
@@ -226,4 +223,45 @@ create policy "Owner can insert saved"
 drop policy if exists "Owner can delete saved" on public.saved_articles;
 create policy "Owner can delete saved"
   on public.saved_articles for delete to authenticated
+  using (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------------
+-- Sticky notes — quick disposable cards on a drag-sortable board
+-- ---------------------------------------------------------------------------
+create table if not exists public.sticky_notes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  body text not null default '',
+  kind text not null default 'text' check (kind in ('text', 'list')),
+  items jsonb not null default '[]', -- checklist rows: [{ id, text, done }]
+  color text not null default 'plain',
+  position double precision not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists sticky_notes_user_position_idx
+  on public.sticky_notes (user_id, position);
+
+alter table public.sticky_notes enable row level security;
+
+drop policy if exists "Owner can read stickies" on public.sticky_notes;
+create policy "Owner can read stickies"
+  on public.sticky_notes for select to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "Owner can insert stickies" on public.sticky_notes;
+create policy "Owner can insert stickies"
+  on public.sticky_notes for insert to authenticated
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Owner can update stickies" on public.sticky_notes;
+create policy "Owner can update stickies"
+  on public.sticky_notes for update to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Owner can delete stickies" on public.sticky_notes;
+create policy "Owner can delete stickies"
+  on public.sticky_notes for delete to authenticated
   using (auth.uid() = user_id);
