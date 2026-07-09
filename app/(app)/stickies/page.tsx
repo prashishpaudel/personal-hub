@@ -181,7 +181,7 @@ function StickyCard({
           aria-label="Delete"
           className="sticky-ctl flex h-6 w-6 cursor-pointer items-center justify-center rounded text-text-faint opacity-0 transition-opacity hover:text-accent-text group-hover:opacity-100"
         >
-          <X size={14} />
+          <Trash2 size={14} />
         </button>
       </div>
 
