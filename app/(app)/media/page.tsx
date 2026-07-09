@@ -30,6 +30,7 @@ import {
   expandPlaylist,
   type Lesson,
 } from "@/lib/courseStore";
+import { useDialog } from "@/components/DialogProvider";
 
 function embedSrc(item: { type: MediaType; url: string }): string {
   if (item.type === "youtube") return youtubeEmbedUrl(item.url);
@@ -46,6 +47,7 @@ const emptyCopy: Record<Tab, string> = {
 };
 
 export default function MediaPage() {
+  const { confirm } = useDialog();
   const [items, setItems] = useState<Item[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
@@ -140,7 +142,13 @@ export default function MediaPage() {
     if (!supabase) return;
     const item = items.find((i) => i.id === id);
     const label = item?.title ? `"${item.title}"` : "this item";
-    if (!window.confirm(`Delete ${label}? This can't be undone.`)) return;
+    const ok = await confirm({
+      title: "Delete",
+      message: `Delete ${label}? This can't be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     setItems((cur) => {
       const next = cur.filter((i) => i.id !== id);
       setMediaCache(next);

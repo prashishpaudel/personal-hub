@@ -1,4 +1,5 @@
 import AppShell from "@/components/AppShell";
+import DialogProvider from "@/components/DialogProvider";
 import { getUser } from "@/lib/supabase-server";
 
 export default async function AppLayout({
@@ -8,5 +9,9 @@ export default async function AppLayout({
 }) {
   const user = await getUser();
 
-  return <AppShell userEmail={user?.email ?? null}>{children}</AppShell>;
+  return (
+    <DialogProvider>
+      <AppShell userEmail={user?.email ?? null}>{children}</AppShell>
+    </DialogProvider>
+  );
 }

@@ -38,6 +38,7 @@ import {
   updatePost,
   type Post,
 } from "@/lib/blogStore";
+import { useDialog } from "@/components/DialogProvider";
 
 const SAVE_DEBOUNCE_MS = 600;
 
@@ -77,16 +78,21 @@ function Divider() {
 }
 
 function Toolbar({ editor }: { editor: Editor }) {
-  const setLink = useCallback(() => {
+  const { prompt } = useDialog();
+  const setLink = useCallback(async () => {
     const prev = editor.getAttributes("link").href as string | undefined;
-    const url = window.prompt("Link URL", prev ?? "https://");
+    const url = await prompt({
+      title: "Link URL",
+      defaultValue: prev ?? "https://",
+      placeholder: "https://",
+    });
     if (url === null) return;
     if (url === "") {
       editor.chain().focus().unsetLink().run();
       return;
     }
     editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
-  }, [editor]);
+  }, [editor, prompt]);
 
   return (
     <div className="sticky top-0 z-10 -mx-1 flex flex-wrap items-center gap-0.5 rounded-xl border border-border bg-bg-elevated/95 px-1.5 py-1 backdrop-blur">
@@ -209,6 +215,7 @@ function Toolbar({ editor }: { editor: Editor }) {
 
 export default function BlogEditor({ post }: { post: Post }) {
   const router = useRouter();
+  const { confirm } = useDialog();
   const [title, setTitle] = useState(post.title);
   const [status, setStatus] = useState(post.status);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">(
@@ -267,9 +274,12 @@ export default function BlogEditor({ post }: { post: Post }) {
   });
 
   async function handleDelete() {
-    if (!window.confirm("Move this draft to trash? You can restore it later.")) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Move to trash",
+      message: "Move this draft to trash? You can restore it later.",
+      confirmLabel: "Move to trash",
+    });
+    if (!ok) return;
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     pendingRef.current = {};
     try {

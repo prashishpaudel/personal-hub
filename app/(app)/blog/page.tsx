@@ -12,6 +12,7 @@ import {
   restore,
   type Post,
 } from "@/lib/blogStore";
+import { useDialog } from "@/components/DialogProvider";
 
 type Tab = "published" | "drafts" | "trash";
 
@@ -56,6 +57,7 @@ const emptyCopy: Record<Tab, string> = {
 
 export default function BlogPage() {
   const router = useRouter();
+  const { confirm } = useDialog();
   const [tab, setTab] = useState<Tab>("published");
   const [posts, setPosts] = useState<Post[]>([]);
   const [trash, setTrash] = useState<Post[]>([]);
@@ -110,13 +112,13 @@ export default function BlogPage() {
 
   async function deleteForever(post: Post) {
     const name = post.title || "Untitled";
-    if (
-      !window.confirm(
-        `Permanently delete "${name}"? This cannot be undone.`
-      )
-    ) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Delete forever",
+      message: `Permanently delete "${name}"? This cannot be undone.`,
+      confirmLabel: "Delete forever",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await hardDelete(post.id);
       await load();

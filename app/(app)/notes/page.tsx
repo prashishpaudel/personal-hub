@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { useDialog } from "@/components/DialogProvider";
 
 type Note = {
   id: string;
@@ -53,6 +54,7 @@ function noteFromRow(row: NoteRow): Note {
 }
 
 export default function NotesPage() {
+  const { confirm } = useDialog();
   const pendingSaveRef = useRef<Partial<Pick<Note, "title" | "body">>>({});
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -182,12 +184,13 @@ export default function NotesPage() {
 
   async function deleteActiveNote() {
     if (!activeNote || !supabase) return;
-    if (
-      !window.confirm(
-        `Delete "${activeNote.title || "Untitled note"}"? This cannot be undone.`
-      )
-    )
-      return;
+    const ok = await confirm({
+      title: "Delete note",
+      message: `Delete "${activeNote.title || "Untitled note"}"? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     const id = activeNote.id;
     const next = notes.filter((n) => n.id !== id);
     setStatus("saving");

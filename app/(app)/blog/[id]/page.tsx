@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { ChevronLeft, Loader2, Pencil, Trash2, Undo } from "lucide-react";
 import { getPost, softDelete, unpublish, type Post } from "@/lib/blogStore";
 import { sanitizeHtml } from "@/lib/sanitize";
+import { useDialog } from "@/components/DialogProvider";
 
 function formatDate(ts: number) {
   return new Intl.DateTimeFormat("en", {
@@ -18,6 +19,7 @@ function formatDate(ts: number) {
 export default function PostPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { confirm } = useDialog();
   const [post, setPost] = useState<Post | null>(null);
   const [status, setStatus] = useState<"loading" | "idle" | "error">("loading");
   const [message, setMessage] = useState("");
@@ -51,9 +53,12 @@ export default function PostPage() {
 
   async function handleDelete() {
     if (!post) return;
-    if (!window.confirm("Move this post to trash? You can restore it later.")) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Move to trash",
+      message: "Move this post to trash? You can restore it later.",
+      confirmLabel: "Move to trash",
+    });
+    if (!ok) return;
     try {
       await softDelete(post.id);
       router.push("/blog");
