@@ -22,6 +22,7 @@ export type Sticky = {
 export type StickySection = {
   id: string;
   name: string;
+  pinned: boolean;
   position: number;
 };
 
@@ -86,10 +87,13 @@ export async function deleteSticky(id: string): Promise<void> {
 
 // --- Sections ---------------------------------------------------------------
 
+const sectionCols = "id,name,pinned,position";
+
 export async function listSections(): Promise<StickySection[]> {
   const { data, error } = await client()
     .from("sticky_sections")
-    .select("id,name,position")
+    .select(sectionCols)
+    .order("pinned", { ascending: false })
     .order("position", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as StickySection[];
@@ -102,16 +106,19 @@ export async function createSection(
   const { data, error } = await client()
     .from("sticky_sections")
     .insert({ name, position })
-    .select("id,name,position")
+    .select(sectionCols)
     .single();
   if (error) throw new Error(error.message);
   return data as StickySection;
 }
 
-export async function renameSection(id: string, name: string): Promise<void> {
+export async function updateSection(
+  id: string,
+  patch: Partial<Pick<StickySection, "name" | "pinned">>
+): Promise<void> {
   const { error } = await client()
     .from("sticky_sections")
-    .update({ name })
+    .update(patch)
     .eq("id", id);
   if (error) throw new Error(error.message);
 }

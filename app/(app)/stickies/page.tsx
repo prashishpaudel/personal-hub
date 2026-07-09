@@ -37,7 +37,7 @@ import {
   deleteSticky,
   listSections,
   listStickies,
-  renameSection,
+  updateSection,
   updateSticky,
   type Sticky,
   type StickyColor,
@@ -465,6 +465,8 @@ export default function StickiesPage() {
       .then(([rows, secs]) => {
         setStickies(rows);
         setSections(secs);
+        // Land on the first pinned section when there is one.
+        if (secs[0]?.pinned) setActive(secs[0].id);
         setStatus("idle");
       })
       .catch((err) => {
@@ -566,7 +568,15 @@ export default function StickiesPage() {
     setSections((cur) =>
       cur.map((s) => (s.id === section.id ? { ...s, name } : s))
     );
-    renameSection(section.id, name).catch(() => {});
+    updateSection(section.id, { name }).catch(() => {});
+  }
+
+  function pinSection(section: StickySection) {
+    const pinned = !section.pinned;
+    setSections((cur) =>
+      cur.map((s) => (s.id === section.id ? { ...s, pinned } : s))
+    );
+    updateSection(section.id, { pinned }).catch(() => {});
   }
 
   async function removeSection(section: StickySection) {
@@ -586,6 +596,10 @@ export default function StickiesPage() {
     setActive("all");
     deleteSection(section.id).catch(() => {});
   }
+
+  const orderedSections = [...sections].sort(
+    (a, b) => Number(b.pinned) - Number(a.pinned) || a.position - b.position
+  );
 
   const byPosition = (a: Sticky, b: Sticky) => a.position - b.position;
   const inView =
@@ -674,22 +688,44 @@ export default function StickiesPage() {
           >
             All
           </button>
-          {sections.map((section) => {
+          {orderedSections.map((section) => {
             const isActive = active === section.id;
             return (
               <span key={section.id} className="flex items-center">
                 <button
                   onClick={() => setActive(section.id)}
-                  className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                  className={`flex cursor-pointer items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                     isActive
                       ? "bg-accent text-white shadow-sm"
                       : "border border-border text-text-muted hover:bg-bg-sunken hover:text-text"
                   }`}
                 >
+                  {section.pinned && (
+                    <Pin
+                      size={11}
+                      className={`fill-current ${
+                        isActive ? "text-white/80" : "text-text-faint"
+                      }`}
+                    />
+                  )}
                   {section.name}
                 </button>
                 {isActive && (
                   <span className="ml-0.5 flex items-center">
+                    <button
+                      onClick={() => pinSection(section)}
+                      aria-label={section.pinned ? "Unpin section" : "Pin section"}
+                      className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg hover:bg-bg-sunken ${
+                        section.pinned
+                          ? "text-accent-text"
+                          : "text-text-faint hover:text-text"
+                      }`}
+                    >
+                      <Pin
+                        size={13}
+                        className={section.pinned ? "fill-current" : ""}
+                      />
+                    </button>
                     <button
                       onClick={() => editSection(section)}
                       aria-label="Rename section"
