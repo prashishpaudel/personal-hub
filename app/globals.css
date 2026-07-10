@@ -153,18 +153,28 @@ body {
 :root,
 [data-theme="light"] {
   --sticky-plain: var(--bg-elevated);
+  --sticky-stone: #ddd5c8;
   --sticky-amber: #f2dda2;
+  --sticky-peach: #f6d3b0;
   --sticky-rose: #f3c9bd;
-  --sticky-sage: #d5e3b5;
+  --sticky-blossom: #f2c9d8;
+  --sticky-lilac: #ded0ee;
   --sticky-sky: #c3dcec;
+  --sticky-mint: #c6e5d3;
+  --sticky-sage: #d5e3b5;
 }
 
 [data-theme="dark"] {
   --sticky-plain: var(--bg-elevated);
+  --sticky-stone: #33302a;
   --sticky-amber: #40371c;
+  --sticky-peach: #43301c;
   --sticky-rose: #442a23;
-  --sticky-sage: #2e3a20;
+  --sticky-blossom: #402633;
+  --sticky-lilac: #322845;
   --sticky-sky: #21333f;
+  --sticky-mint: #20382c;
+  --sticky-sage: #2e3a20;
 }
 
 /* Sticky card controls are hover-revealed on desktop; touch has no hover,

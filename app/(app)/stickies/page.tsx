@@ -22,6 +22,7 @@ import {
   GripVertical,
   ListChecks,
   Loader2,
+  Palette,
   Pencil,
   Pin,
   Plus,
@@ -50,7 +51,18 @@ import {
 } from "@/lib/stickyStore";
 import { useDialog } from "@/components/DialogProvider";
 
-const COLORS: StickyColor[] = ["plain", "amber", "rose", "sage", "sky"];
+const COLORS: StickyColor[] = [
+  "plain",
+  "stone",
+  "amber",
+  "peach",
+  "rose",
+  "blossom",
+  "lilac",
+  "sky",
+  "mint",
+  "sage",
+];
 const SAVE_DEBOUNCE_MS = 500;
 
 function newItem(text = ""): StickyItem {
@@ -130,6 +142,20 @@ function StickyCard({
     transition,
     isDragging,
   } = useSortable({ id: sticky.id });
+  const [colorOpen, setColorOpen] = useState(false);
+  const paletteRef = useRef<HTMLDivElement>(null);
+
+  // Close the palette on outside tap/click.
+  useEffect(() => {
+    if (!colorOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (!paletteRef.current?.contains(e.target as Node)) {
+        setColorOpen(false);
+      }
+    };
+    window.addEventListener("pointerdown", onDown);
+    return () => window.removeEventListener("pointerdown", onDown);
+  }, [colorOpen]);
 
   // Keep-style preview: completed items hide behind a "+N completed" line.
   const unchecked = sticky.items.filter((i) => !i.done);
@@ -139,13 +165,16 @@ function StickyCard({
 
   return (
     <div
-      ref={setNodeRef}
+      ref={(el) => {
+        setNodeRef(el);
+        paletteRef.current = el;
+      }}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
         background: `var(--sticky-${sticky.color})`,
       }}
-      className={`group flex flex-col rounded-2xl border border-border p-2 sm:p-3 ${
+      className={`group relative flex flex-col rounded-2xl border border-border p-2 sm:p-3 ${
         isDragging ? "z-10 opacity-80 shadow-lg" : ""
       }`}
     >
@@ -159,19 +188,17 @@ function StickyCard({
           <GripVertical size={14} />
         </button>
         <span className="flex-1" />
-        {COLORS.map((c) => (
-          <button
-            key={c}
-            onClick={() => onColor(sticky.id, c)}
-            aria-label={`Color ${c}`}
-            style={{ background: `var(--sticky-${c})` }}
-            className={`sticky-ctl h-4 w-4 cursor-pointer rounded-full border opacity-0 transition-opacity hover:scale-110 group-hover:opacity-100 ${
-              sticky.color === c
-                ? "border-2 border-text-muted"
-                : "border-border-strong"
-            }`}
-          />
-        ))}
+        <button
+          onClick={() => setColorOpen((v) => !v)}
+          aria-label="Change color"
+          className={`sticky-ctl flex h-6 w-6 cursor-pointer items-center justify-center rounded transition-opacity group-hover:opacity-100 ${
+            colorOpen
+              ? "text-text-muted opacity-100"
+              : "text-text-faint opacity-0 hover:text-text-muted"
+          }`}
+        >
+          <Palette size={14} />
+        </button>
         <button
           onClick={() => onPatch(sticky.id, { pinned: !sticky.pinned })}
           aria-label={sticky.pinned ? "Unpin" : "Pin"}
@@ -191,6 +218,27 @@ function StickyCard({
           <Trash2 size={14} />
         </button>
       </div>
+
+      {colorOpen && (
+        <div className="absolute -top-3 right-2 z-20 grid grid-cols-5 gap-1.5 rounded-2xl border border-border bg-bg-elevated px-2.5 py-2 shadow-lg">
+          {COLORS.map((c) => (
+            <button
+              key={c}
+              onClick={() => {
+                onColor(sticky.id, c);
+                setColorOpen(false);
+              }}
+              aria-label={`Color ${c}`}
+              style={{ background: `var(--sticky-${c})` }}
+              className={`h-5 w-5 cursor-pointer rounded-full border transition-transform hover:scale-110 ${
+                sticky.color === c
+                  ? "border-2 border-text-muted"
+                  : "border-border-strong"
+              }`}
+            />
+          ))}
+        </div>
+      )}
 
       <button
         onClick={() => onOpen(sticky.id)}
@@ -319,7 +367,7 @@ function StickyModal({
         style={{ background: `var(--sticky-${sticky.color})` }}
         className="relative flex max-h-[85dvh] w-full max-w-lg flex-col rounded-2xl border border-border shadow-xl"
       >
-        <div className="flex items-center gap-1.5 px-4 pt-3">
+        <div className="flex flex-wrap items-center gap-1.5 px-4 pt-3">
           {COLORS.map((c) => (
             <button
               key={c}

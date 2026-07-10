@@ -3,7 +3,17 @@
 // between two others takes the midpoint, new cards go on top (min - 1).
 import { supabase } from "@/lib/supabase";
 
-export type StickyColor = "plain" | "amber" | "rose" | "sage" | "sky";
+export type StickyColor =
+  | "plain"
+  | "stone"
+  | "amber"
+  | "peach"
+  | "rose"
+  | "blossom"
+  | "lilac"
+  | "sky"
+  | "mint"
+  | "sage";
 export type StickyKind = "text" | "list";
 
 export type StickyItem = { id: string; text: string; done: boolean };
