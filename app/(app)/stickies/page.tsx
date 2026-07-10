@@ -609,6 +609,7 @@ export default function StickiesPage() {
   const [trash, setTrash] = useState<Sticky[]>([]);
   const [sections, setSections] = useState<StickySection[]>([]);
   const [active, setActive] = useState<string>("all");
+  const [actionsFor, setActionsFor] = useState<string | null>(null);
   const [status, setStatus] = useState<"loading" | "idle" | "error">("loading");
   const [message, setMessage] = useState("");
   const [creating, setCreating] = useState(false);
@@ -618,6 +619,18 @@ export default function StickiesPage() {
   const menuRef = useRef<HTMLDivElement>(null);
   const fabRef = useRef<HTMLDivElement>(null);
   const saveTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+
+  // Close section actions on outside tap.
+  useEffect(() => {
+    if (!actionsFor) return;
+    const onDown = (e: PointerEvent) => {
+      if (!(e.target as Element).closest?.("[data-section-tab]")) {
+        setActionsFor(null);
+      }
+    };
+    window.addEventListener("pointerdown", onDown);
+    return () => window.removeEventListener("pointerdown", onDown);
+  }, [actionsFor]);
 
   // Close the add-menus on outside click/tap.
   useEffect(() => {
@@ -884,9 +897,19 @@ export default function StickiesPage() {
           {orderedSections.map((section) => {
             const isActive = active === section.id;
             return (
-              <span key={section.id} className="relative">
+              <span key={section.id} className="relative" data-section-tab>
                 <button
-                  onClick={() => setActive(section.id)}
+                  onClick={() => {
+                    if (isActive) {
+                      // Second tap on the active tab toggles its actions.
+                      setActionsFor((cur) =>
+                        cur === section.id ? null : section.id
+                      );
+                    } else {
+                      setActive(section.id);
+                      setActionsFor(null);
+                    }
+                  }}
                   className={`flex cursor-pointer items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                     isActive
                       ? "bg-accent text-white shadow-sm"
@@ -903,10 +926,13 @@ export default function StickiesPage() {
                   )}
                   {section.name}
                 </button>
-                {isActive && (
+                {actionsFor === section.id && (
                   <span className="absolute bottom-full left-0 z-20 mb-1 flex items-center gap-0.5 rounded-lg border border-border bg-bg-elevated px-1 py-0.5 shadow-lg">
                     <button
-                      onClick={() => pinSection(section)}
+                      onClick={() => {
+                        pinSection(section);
+                        setActionsFor(null);
+                      }}
                       aria-label={section.pinned ? "Unpin section" : "Pin section"}
                       className={`flex h-6 w-6 cursor-pointer items-center justify-center rounded hover:bg-bg-sunken ${
                         section.pinned
@@ -920,14 +946,20 @@ export default function StickiesPage() {
                       />
                     </button>
                     <button
-                      onClick={() => editSection(section)}
+                      onClick={() => {
+                        setActionsFor(null);
+                        editSection(section);
+                      }}
                       aria-label="Rename section"
                       className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-text-faint hover:bg-bg-sunken hover:text-text"
                     >
                       <Pencil size={13} />
                     </button>
                     <button
-                      onClick={() => removeSection(section)}
+                      onClick={() => {
+                        setActionsFor(null);
+                        removeSection(section);
+                      }}
                       aria-label="Delete section"
                       className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-text-faint hover:bg-bg-sunken hover:text-accent-text"
                     >
