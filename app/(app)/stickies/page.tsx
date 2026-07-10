@@ -247,9 +247,23 @@ function StickyCard({
       >
         {sticky.kind === "text" ? (
           sticky.body.trim() ? (
-            <p className="line-clamp-[10] whitespace-pre-wrap text-xs leading-relaxed sm:text-sm">
-              {sticky.body}
-            </p>
+            <div className="max-h-[16.5em] overflow-hidden text-xs leading-relaxed sm:text-sm">
+              {sticky.body.split("\n").slice(0, 10).map((line, i) => (
+                <div
+                  key={i}
+                  // Hanging indent: wrapped text tucks under the content,
+                  // not under the "1." / "•" marker.
+                  className={
+                    /^(\d+[.)]|[•\-*])\s/.test(line) ? "-indent-5 pl-5" : ""
+                  }
+                >
+                  {line || " "}
+                </div>
+              ))}
+              {sticky.body.split("\n").length > 10 && (
+                <div className="text-[11px] text-text-faint">…</div>
+              )}
+            </div>
           ) : (
             <p className="text-xs text-text-faint sm:text-sm">Empty note</p>
           )
