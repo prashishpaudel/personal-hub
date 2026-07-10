@@ -276,6 +276,7 @@ create table if not exists public.sticky_notes (
   pinned boolean not null default false,
   section_id uuid references public.sticky_sections (id) on delete set null,
   position double precision not null default 0,
+  deleted_at timestamptz, -- soft delete: set = in trash, null = on the board
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

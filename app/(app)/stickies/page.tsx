@@ -28,6 +28,7 @@ import {
   StickyNote,
   Text,
   Trash2,
+  Undo2,
   X,
 } from "lucide-react";
 import {
@@ -37,6 +38,9 @@ import {
   deleteSticky,
   listSections,
   listStickies,
+  listStickyTrash,
+  restoreSticky,
+  softDeleteSticky,
   updateSection,
   updateSticky,
   type Sticky,
@@ -444,6 +448,7 @@ function StickyModal({
 export default function StickiesPage() {
   const { confirm, prompt } = useDialog();
   const [stickies, setStickies] = useState<Sticky[]>([]);
+  const [trash, setTrash] = useState<Sticky[]>([]);
   const [sections, setSections] = useState<StickySection[]>([]);
   const [active, setActive] = useState<string>("all");
   const [status, setStatus] = useState<"loading" | "idle" | "error">("loading");
@@ -470,10 +475,11 @@ export default function StickiesPage() {
   );
 
   useEffect(() => {
-    Promise.all([listStickies(), listSections()])
-      .then(([rows, secs]) => {
+    Promise.all([listStickies(), listSections(), listStickyTrash()])
+      .then(([rows, secs, deleted]) => {
         setStickies(rows);
         setSections(secs);
+        setTrash(deleted);
         // Land on the first pinned section when there is one.
         if (secs[0]?.pinned) setActive(secs[0].id);
         setStatus("idle");
@@ -532,20 +538,41 @@ export default function StickiesPage() {
   }
 
   async function remove(sticky: Sticky) {
-    const hasContent =
-      sticky.kind === "text"
-        ? sticky.body.trim() !== ""
-        : sticky.items.some((i) => i.text.trim() !== "");
-    if (hasContent) {
-      const ok = await confirm({
-        title: "Delete sticky",
-        message: "Toss this sticky? It's gone for good.",
-        confirmLabel: "Delete",
-        danger: true,
-      });
-      if (!ok) return;
-    }
+    const ok = await confirm({
+      title: "Move to trash",
+      message: "Send this sticky to trash? You can restore it later.",
+      confirmLabel: "Move to trash",
+    });
+    if (!ok) return;
     setStickies((cur) => cur.filter((s) => s.id !== sticky.id));
+    setTrash((cur) => [
+      { ...sticky, deletedAt: new Date().toISOString() },
+      ...cur,
+    ]);
+    softDeleteSticky(sticky.id).catch(() => {});
+  }
+
+  async function restore(sticky: Sticky) {
+    const ok = await confirm({
+      title: "Restore sticky",
+      message: "Bring this sticky back to the board?",
+      confirmLabel: "Restore",
+    });
+    if (!ok) return;
+    setTrash((cur) => cur.filter((s) => s.id !== sticky.id));
+    setStickies((cur) => [{ ...sticky, deletedAt: null }, ...cur]);
+    restoreSticky(sticky.id).catch(() => {});
+  }
+
+  async function deleteForever(sticky: Sticky) {
+    const ok = await confirm({
+      title: "Delete forever",
+      message: "Permanently delete this sticky? This cannot be undone.",
+      confirmLabel: "Delete forever",
+      danger: true,
+    });
+    if (!ok) return;
+    setTrash((cur) => cur.filter((s) => s.id !== sticky.id));
     deleteSticky(sticky.id).catch(() => {});
   }
 
@@ -612,7 +639,7 @@ export default function StickiesPage() {
 
   const byPosition = (a: Sticky, b: Sticky) => a.position - b.position;
   const inView =
-    active === "all"
+    active === "all" || active === "trash"
       ? stickies
       : stickies.filter((s) => s.sectionId === active);
   const pinned = inView.filter((s) => s.pinned).sort(byPosition);
@@ -764,6 +791,26 @@ export default function StickiesPage() {
           >
             <Plus size={15} />
           </button>
+          <button
+            onClick={() => setActive("trash")}
+            className={`ml-auto flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+              active === "trash"
+                ? "bg-accent text-white shadow-sm"
+                : "border border-border text-text-muted hover:bg-bg-sunken hover:text-text"
+            }`}
+          >
+            <Trash2 size={14} />
+            Trash
+            {trash.length > 0 && (
+              <span
+                className={`text-xs tabular-nums ${
+                  active === "trash" ? "text-white/70" : "text-text-faint"
+                }`}
+              >
+                {trash.length}
+              </span>
+            )}
+          </button>
         </div>
       )}
 
@@ -773,6 +820,54 @@ export default function StickiesPage() {
         </div>
       ) : status === "error" ? (
         <p className="py-10 text-center text-sm text-text-muted">{message}</p>
+      ) : active === "trash" ? (
+        trash.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-14 text-text-muted">
+            <Trash2 size={26} />
+            <p className="text-sm">Trash is empty.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 items-start gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
+            {trash.map((sticky) => (
+              <div
+                key={sticky.id}
+                style={{ background: `var(--sticky-${sticky.color})` }}
+                className="flex flex-col rounded-2xl border border-border p-2 opacity-80 sm:p-3"
+              >
+                <div className="px-1 pb-1">
+                  {sticky.kind === "text" ? (
+                    <p className="line-clamp-4 whitespace-pre-wrap text-xs leading-relaxed sm:text-sm">
+                      {sticky.body.trim() || (
+                        <span className="text-text-faint">Empty note</span>
+                      )}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-text-muted sm:text-sm">
+                      List · {sticky.items.filter((i) => i.text.trim()).length}{" "}
+                      items
+                    </p>
+                  )}
+                </div>
+                <div className="mt-1 flex items-center gap-1 border-t border-border pt-1.5">
+                  <button
+                    onClick={() => restore(sticky)}
+                    className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-accent-text hover:bg-accent-soft"
+                  >
+                    <Undo2 size={13} /> Restore
+                  </button>
+                  <span className="flex-1" />
+                  <button
+                    onClick={() => deleteForever(sticky)}
+                    title="Delete forever"
+                    className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-red-400 hover:bg-bg-sunken"
+                  >
+                    <Trash2 size={13} /> Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
       ) : inView.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-14 text-text-muted">
           <StickyNote size={26} />

@@ -17,6 +17,7 @@ export type Sticky = {
   pinned: boolean;
   sectionId: string | null;
   position: number;
+  deletedAt: string | null;
 };
 
 export type StickySection = {
@@ -26,7 +27,8 @@ export type StickySection = {
   position: number;
 };
 
-const cols = "id,body,kind,items,color,pinned,sectionId:section_id,position";
+const cols =
+  "id,body,kind,items,color,pinned,sectionId:section_id,position,deletedAt:deleted_at";
 
 function client() {
   if (!supabase) throw new Error("Add Supabase env vars to use stickies.");
@@ -37,7 +39,18 @@ export async function listStickies(): Promise<Sticky[]> {
   const { data, error } = await client()
     .from("sticky_notes")
     .select(cols)
+    .is("deleted_at", null)
     .order("position", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Sticky[];
+}
+
+export async function listStickyTrash(): Promise<Sticky[]> {
+  const { data, error } = await client()
+    .from("sticky_notes")
+    .select(cols)
+    .not("deleted_at", "is", null)
+    .order("deleted_at", { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []) as Sticky[];
 }
@@ -80,6 +93,24 @@ export async function updateSticky(
   if (error) throw new Error(error.message);
 }
 
+// Move to trash — recoverable via restoreSticky.
+export async function softDeleteSticky(id: string): Promise<void> {
+  const { error } = await client()
+    .from("sticky_notes")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function restoreSticky(id: string): Promise<void> {
+  const { error } = await client()
+    .from("sticky_notes")
+    .update({ deleted_at: null })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+// Permanent removal — only from the Trash view.
 export async function deleteSticky(id: string): Promise<void> {
   const { error } = await client().from("sticky_notes").delete().eq("id", id);
   if (error) throw new Error(error.message);
