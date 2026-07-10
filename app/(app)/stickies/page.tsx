@@ -613,19 +613,23 @@ export default function StickiesPage() {
   const [message, setMessage] = useState("");
   const [creating, setCreating] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [fabOpen, setFabOpen] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const fabRef = useRef<HTMLDivElement>(null);
   const saveTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
-  // Close the add-menu on outside click.
+  // Close the add-menus on outside click/tap.
   useEffect(() => {
-    if (!menuOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    if (!menuOpen && !fabOpen) return;
+    const onDown = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (!menuRef.current?.contains(t)) setMenuOpen(false);
+      if (!fabRef.current?.contains(t)) setFabOpen(false);
     };
-    window.addEventListener("mousedown", onDown);
-    return () => window.removeEventListener("mousedown", onDown);
-  }, [menuOpen]);
+    window.addEventListener("pointerdown", onDown);
+    return () => window.removeEventListener("pointerdown", onDown);
+  }, [menuOpen, fabOpen]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -650,6 +654,7 @@ export default function StickiesPage() {
 
   async function add(kind: "text" | "list") {
     setMenuOpen(false);
+    setFabOpen(false);
     setCreating(true);
     try {
       const top = stickies.length
@@ -658,7 +663,7 @@ export default function StickiesPage() {
       const sticky = await createSticky(
         top,
         kind,
-        active === "all" ? null : active
+        active === "all" || active === "trash" ? null : active
       );
       setStickies((cur) => [sticky, ...cur]);
       setOpenId(sticky.id);
@@ -791,8 +796,9 @@ export default function StickiesPage() {
     deleteSection(section.id).catch(() => {});
   }
 
+  // Pinned first, then alphabetical.
   const orderedSections = [...sections].sort(
-    (a, b) => Number(b.pinned) - Number(a.pinned) || a.position - b.position
+    (a, b) => Number(b.pinned) - Number(a.pinned) || a.name.localeCompare(b.name)
   );
 
   const byPosition = (a: Sticky, b: Sticky) => a.position - b.position;
@@ -838,36 +844,26 @@ export default function StickiesPage() {
             Fast capture. Drag to arrange, toss when done.
           </p>
         </div>
-        <div ref={menuRef} className="relative">
-          <button
-            onClick={() => setMenuOpen((v) => !v)}
-            disabled={creating}
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-accent px-3.5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-          >
-            {creating ? (
-              <Loader2 size={15} className="animate-spin" />
-            ) : (
-              <Plus size={15} />
-            )}
-            New
-          </button>
-          {menuOpen && (
-            <div className="absolute right-0 top-full z-20 mt-1.5 w-36 overflow-hidden rounded-xl border border-border bg-bg-elevated shadow-lg">
-              <button
-                onClick={() => add("text")}
-                className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-bg-sunken"
-              >
-                <Text size={15} className="text-text-muted" /> Text
-              </button>
-              <button
-                onClick={() => add("list")}
-                className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-bg-sunken"
-              >
-                <ListChecks size={15} className="text-text-muted" /> List
-              </button>
-            </div>
+        <button
+          onClick={() => setActive("trash")}
+          className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium transition-colors ${
+            active === "trash"
+              ? "bg-accent text-white shadow-sm"
+              : "border border-border text-text-muted hover:bg-bg-sunken hover:text-text"
+          }`}
+        >
+          <Trash2 size={15} />
+          Trash
+          {trash.length > 0 && (
+            <span
+              className={`text-xs tabular-nums ${
+                active === "trash" ? "text-white/70" : "text-text-faint"
+              }`}
+            >
+              {trash.length}
+            </span>
           )}
-        </div>
+        </button>
       </header>
 
       {status === "idle" && (
@@ -888,7 +884,7 @@ export default function StickiesPage() {
           {orderedSections.map((section) => {
             const isActive = active === section.id;
             return (
-              <span key={section.id} className="flex items-center">
+              <span key={section.id} className="relative">
                 <button
                   onClick={() => setActive(section.id)}
                   className={`flex cursor-pointer items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
@@ -908,11 +904,11 @@ export default function StickiesPage() {
                   {section.name}
                 </button>
                 {isActive && (
-                  <span className="ml-0.5 flex items-center">
+                  <span className="absolute bottom-full left-0 z-20 mb-1 flex items-center gap-0.5 rounded-lg border border-border bg-bg-elevated px-1 py-0.5 shadow-lg">
                     <button
                       onClick={() => pinSection(section)}
                       aria-label={section.pinned ? "Unpin section" : "Pin section"}
-                      className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg hover:bg-bg-sunken ${
+                      className={`flex h-6 w-6 cursor-pointer items-center justify-center rounded hover:bg-bg-sunken ${
                         section.pinned
                           ? "text-accent-text"
                           : "text-text-faint hover:text-text"
@@ -926,14 +922,14 @@ export default function StickiesPage() {
                     <button
                       onClick={() => editSection(section)}
                       aria-label="Rename section"
-                      className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg text-text-faint hover:bg-bg-sunken hover:text-text"
+                      className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-text-faint hover:bg-bg-sunken hover:text-text"
                     >
                       <Pencil size={13} />
                     </button>
                     <button
                       onClick={() => removeSection(section)}
                       aria-label="Delete section"
-                      className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg text-text-faint hover:bg-bg-sunken hover:text-accent-text"
+                      className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-text-faint hover:bg-bg-sunken hover:text-accent-text"
                     >
                       <Trash2 size={13} />
                     </button>
@@ -949,26 +945,36 @@ export default function StickiesPage() {
           >
             <Plus size={15} />
           </button>
-          <button
-            onClick={() => setActive("trash")}
-            className={`ml-auto flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-              active === "trash"
-                ? "bg-accent text-white shadow-sm"
-                : "border border-border text-text-muted hover:bg-bg-sunken hover:text-text"
-            }`}
-          >
-            <Trash2 size={14} />
-            Trash
-            {trash.length > 0 && (
-              <span
-                className={`text-xs tabular-nums ${
-                  active === "trash" ? "text-white/70" : "text-text-faint"
-                }`}
-              >
-                {trash.length}
-              </span>
+          <div ref={menuRef} className="relative ml-auto hidden sm:block">
+            <button
+              onClick={() => setMenuOpen((v) => !v)}
+              disabled={creating}
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+            >
+              {creating ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Plus size={14} />
+              )}
+              New
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-full z-20 mt-1.5 w-36 overflow-hidden rounded-xl border border-border bg-bg-elevated shadow-lg">
+                <button
+                  onClick={() => add("text")}
+                  className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-bg-sunken"
+                >
+                  <Text size={15} className="text-text-muted" /> Text
+                </button>
+                <button
+                  onClick={() => add("list")}
+                  className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-bg-sunken"
+                >
+                  <ListChecks size={15} className="text-text-muted" /> List
+                </button>
+              </div>
             )}
-          </button>
+          </div>
         </div>
       )}
 
@@ -1102,6 +1108,38 @@ export default function StickiesPage() {
           )}
         </div>
       )}
+
+      {/* Mobile: floating create button above the bottom tab bar */}
+      <div ref={fabRef} className="fixed bottom-20 right-4 z-30 sm:hidden">
+        {fabOpen && (
+          <div className="absolute bottom-full right-0 mb-2 w-36 overflow-hidden rounded-xl border border-border bg-bg-elevated shadow-xl">
+            <button
+              onClick={() => add("text")}
+              className="flex w-full cursor-pointer items-center gap-2 px-3 py-2.5 text-sm transition-colors hover:bg-bg-sunken"
+            >
+              <Text size={15} className="text-text-muted" /> Text
+            </button>
+            <button
+              onClick={() => add("list")}
+              className="flex w-full cursor-pointer items-center gap-2 px-3 py-2.5 text-sm transition-colors hover:bg-bg-sunken"
+            >
+              <ListChecks size={15} className="text-text-muted" /> List
+            </button>
+          </div>
+        )}
+        <button
+          onClick={() => setFabOpen((v) => !v)}
+          disabled={creating}
+          aria-label="New sticky"
+          className="flex h-13 w-13 cursor-pointer items-center justify-center rounded-full bg-accent text-white shadow-lg transition-opacity hover:opacity-90 disabled:opacity-60"
+        >
+          {creating ? (
+            <Loader2 size={22} className="animate-spin" />
+          ) : (
+            <Plus size={22} />
+          )}
+        </button>
+      </div>
 
       {openId &&
         (() => {

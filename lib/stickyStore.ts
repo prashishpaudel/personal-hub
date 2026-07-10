@@ -135,7 +135,7 @@ export async function listSections(): Promise<StickySection[]> {
     .from("sticky_sections")
     .select(sectionCols)
     .order("pinned", { ascending: false })
-    .order("position", { ascending: true });
+    .order("name", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as StickySection[];
 }
