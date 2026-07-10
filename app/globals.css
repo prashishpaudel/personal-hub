@@ -49,8 +49,12 @@
   --font-display: var(--font-display);
 }
 
-* {
-  border-color: var(--border);
+/* Default border tint. Kept in the base layer so border-color utilities
+   (border-text, border-accent, …) still override it. */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
 }
 
 html {

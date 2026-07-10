@@ -14,6 +14,7 @@ import {
   SortableContext,
   arrayMove,
   rectSortingStrategy,
+  verticalListSortingStrategy,
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -76,12 +77,14 @@ function ItemText({
   onChange,
   onEnter,
   onEmptyBackspace,
+  onMove,
 }: {
   item: StickyItem;
   autoFocus: boolean;
   onChange: (text: string) => void;
   onEnter: () => void;
   onEmptyBackspace: () => void;
+  onMove?: (dir: -1 | 1) => void;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -110,6 +113,12 @@ function ItemText({
         } else if (e.key === "Backspace" && item.text === "") {
           e.preventDefault();
           onEmptyBackspace();
+        } else if (e.altKey && e.key === "ArrowUp" && onMove) {
+          e.preventDefault();
+          onMove(-1);
+        } else if (e.altKey && e.key === "ArrowDown" && onMove) {
+          e.preventDefault();
+          onMove(1);
         }
       }}
       placeholder="List item"
@@ -297,6 +306,72 @@ function StickyCard({
   );
 }
 
+// One draggable checklist row in the modal editor.
+function ModalItemRow({
+  item,
+  autoFocus,
+  onTick,
+  onChange,
+  onEnter,
+  onEmptyBackspace,
+  onMove,
+}: {
+  item: StickyItem;
+  autoFocus: boolean;
+  onTick: () => void;
+  onChange: (text: string) => void;
+  onEnter: () => void;
+  onEmptyBackspace: () => void;
+  onMove: (dir: -1 | 1) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id });
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`group/item flex items-start gap-1.5 ${
+        isDragging ? "z-10 opacity-70" : ""
+      }`}
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        aria-label="Drag item"
+        className="sticky-ctl mt-[3px] flex h-4 w-4 shrink-0 cursor-grab touch-none items-center justify-center rounded text-text-faint opacity-0 transition-opacity hover:text-text-muted group-hover/item:opacity-100 active:cursor-grabbing"
+      >
+        <GripVertical size={13} />
+      </button>
+      <button
+        onClick={onTick}
+        aria-label={item.done ? "Uncheck" : "Check"}
+        className={`mt-[3px] flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded border-2 transition-colors ${
+          item.done
+            ? "border-accent bg-accent text-white"
+            : "border-text hover:border-accent"
+        }`}
+      >
+        {item.done && <Check size={11} strokeWidth={3} />}
+      </button>
+      <ItemText
+        item={item}
+        autoFocus={autoFocus}
+        onChange={onChange}
+        onEnter={onEnter}
+        onEmptyBackspace={onEmptyBackspace}
+        onMove={onMove}
+      />
+    </li>
+  );
+}
+
 // Full edit view — Keep-style modal over the board.
 function StickyModal({
   sticky,
@@ -315,6 +390,11 @@ function StickyModal({
 }) {
   const areaRef = useRef<HTMLTextAreaElement>(null);
   const [focusItem, setFocusItem] = useState<string | null>(null);
+
+  const itemSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 6 } })
+  );
 
   const resize = useCallback(() => {
     const el = areaRef.current;
@@ -366,6 +446,15 @@ function StickyModal({
     setItems(next.length ? next : [newItem()]);
     const prev = sticky.items[idx - 1];
     if (prev) setFocusItem(prev.id);
+  }
+
+  function moveItem(itemId: string, dir: -1 | 1) {
+    const idx = sticky.items.findIndex((i) => i.id === itemId);
+    const to = idx + dir;
+    if (idx < 0 || to < 0 || to >= sticky.items.length) return;
+    const next = [...sticky.items];
+    [next[idx], next[to]] = [next[to], next[idx]];
+    setItems(next);
   }
 
   return (
@@ -449,30 +538,37 @@ function StickyModal({
             />
           ) : (
             <>
-              <ul className="space-y-1">
-                {sticky.items.map((item) => (
-                  <li key={item.id} className="flex items-start gap-2">
-                    <button
-                      onClick={() => tickItem(item.id)}
-                      aria-label={item.done ? "Uncheck" : "Check"}
-                      className={`mt-[3px] flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded border-2 transition-colors ${
-                        item.done
-                          ? "border-accent bg-accent text-white"
-                          : "border-text hover:border-accent"
-                      }`}
-                    >
-                      {item.done && <Check size={11} strokeWidth={3} />}
-                    </button>
-                    <ItemText
-                      item={item}
-                      autoFocus={focusItem === item.id}
-                      onChange={(text) => editItem(item.id, text)}
-                      onEnter={() => addItemAfter(item.id)}
-                      onEmptyBackspace={() => removeItem(item.id)}
-                    />
-                  </li>
-                ))}
-              </ul>
+              <DndContext
+                sensors={itemSensors}
+                collisionDetection={closestCenter}
+                onDragEnd={({ active, over }) => {
+                  if (!over || active.id === over.id) return;
+                  const from = sticky.items.findIndex((i) => i.id === active.id);
+                  const to = sticky.items.findIndex((i) => i.id === over.id);
+                  if (from < 0 || to < 0) return;
+                  setItems(arrayMove(sticky.items, from, to));
+                }}
+              >
+                <SortableContext
+                  items={sticky.items.map((i) => i.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <ul className="space-y-1">
+                    {sticky.items.map((item) => (
+                      <ModalItemRow
+                        key={item.id}
+                        item={item}
+                        autoFocus={focusItem === item.id}
+                        onTick={() => tickItem(item.id)}
+                        onChange={(text) => editItem(item.id, text)}
+                        onEnter={() => addItemAfter(item.id)}
+                        onEmptyBackspace={() => removeItem(item.id)}
+                        onMove={(dir) => moveItem(item.id, dir)}
+                      />
+                    ))}
+                  </ul>
+                </SortableContext>
+              </DndContext>
               <button
                 onClick={() => addItemAfter()}
                 className="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-text-muted hover:text-text"
