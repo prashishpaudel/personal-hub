@@ -226,6 +226,38 @@ create policy "Owner can delete saved"
   using (auth.uid() = user_id);
 
 -- ---------------------------------------------------------------------------
+-- Site bookmarks — sites without RSS worth revisiting (Feed "Sites" library)
+-- ---------------------------------------------------------------------------
+create table if not exists public.site_bookmarks (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  name text not null default '',
+  url text not null,
+  created_at timestamptz not null default now(),
+  unique (user_id, url)
+);
+
+create index if not exists site_bookmarks_user_created_idx
+  on public.site_bookmarks (user_id, created_at desc);
+
+alter table public.site_bookmarks enable row level security;
+
+drop policy if exists "Owner can read site bookmarks" on public.site_bookmarks;
+create policy "Owner can read site bookmarks"
+  on public.site_bookmarks for select to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "Owner can insert site bookmarks" on public.site_bookmarks;
+create policy "Owner can insert site bookmarks"
+  on public.site_bookmarks for insert to authenticated
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Owner can delete site bookmarks" on public.site_bookmarks;
+create policy "Owner can delete site bookmarks"
+  on public.site_bookmarks for delete to authenticated
+  using (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------------
 -- Sticky sections — user-defined groups shown as tabs on the sticky board
 -- ---------------------------------------------------------------------------
 create table if not exists public.sticky_sections (

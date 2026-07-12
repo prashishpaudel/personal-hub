@@ -13,6 +13,7 @@ import {
   X,
   Search,
   Plus,
+  Trash2,
   Maximize2,
   Minimize2,
   Globe,
@@ -38,6 +39,7 @@ import {
   setCachedArticle,
 } from "@/lib/feedStore";
 import { listSaved, addSaved, removeSaved } from "@/lib/savedStore";
+import { listSites, addSite, removeSite, type Site } from "@/lib/siteStore";
 import { useDialog } from "@/components/DialogProvider";
 
 function timeAgo(date: string): string {
@@ -101,6 +103,10 @@ export default function FeedPage() {
   const [manageOpen, setManageOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [savedItems, setSavedItems] = useState<FeedItem[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [siteUrl, setSiteUrl] = useState("");
+  const [siteName, setSiteName] = useState("");
+  const [siteError, setSiteError] = useState<string | null>(null);
   const [linkUrl, setLinkUrl] = useState("");
   const [addingLink, setAddingLink] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
@@ -153,6 +159,11 @@ export default function FeedPage() {
       .then(setSavedItems)
       .catch(() => {
         /* bookmarks unavailable — feed still works */
+      });
+    listSites()
+      .then(setSites)
+      .catch(() => {
+        /* sites unavailable — feed still works */
       });
     const ui = getFeedUI();
     setFilter(ui.filter);
@@ -265,6 +276,46 @@ export default function FeedPage() {
           : cur.filter((i) => i.link !== item.link)
       );
     }
+  }
+
+  // Bookmark a site (no RSS needed) for revisiting later.
+  async function submitSite(e: React.FormEvent) {
+    e.preventDefault();
+    const raw = siteUrl.trim();
+    if (!raw) return;
+    const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    let host: string;
+    try {
+      host = new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      setSiteError("Enter a valid URL.");
+      return;
+    }
+    if (sites.some((s) => s.url === url)) {
+      setSiteError("Already saved.");
+      return;
+    }
+    setSiteError(null);
+    try {
+      const site = await addSite(siteName.trim() || host, url);
+      setSites((cur) => [site, ...cur]);
+      setSiteUrl("");
+      setSiteName("");
+    } catch (err) {
+      setSiteError(err instanceof Error ? err.message : "Couldn't save site.");
+    }
+  }
+
+  async function deleteSite(site: Site) {
+    const ok = await confirm({
+      title: "Remove site",
+      message: `Remove "${site.name}" from your sites?`,
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (!ok) return;
+    setSites((cur) => cur.filter((s) => s.id !== site.id));
+    removeSite(site.id).catch(() => {});
   }
 
   // Save an arbitrary article URL to the reading list. Extracts a title +
@@ -381,6 +432,23 @@ export default function FeedPage() {
             {favs.size > 0 && (
               <span className="text-[11px] tabular-nums text-text-faint">
                 {favs.size}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => pickCategory("Sites")}
+            className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm transition-colors ${
+              filter === "Sites"
+                ? "bg-accent-soft text-accent-text"
+                : "text-text-muted hover:bg-bg-sunken hover:text-text"
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <Globe size={16} /> Sites
+            </span>
+            {sites.length > 0 && (
+              <span className="text-[11px] tabular-nums text-text-faint">
+                {sites.length}
               </span>
             )}
           </button>
@@ -529,7 +597,11 @@ export default function FeedPage() {
           </button>
         </div>
 
-        <label className="flex items-center gap-2 rounded-xl border border-border bg-bg-elevated px-3 py-2 focus-within:border-border-strong">
+        <label
+          className={`${
+            filter === "Sites" ? "hidden" : "flex"
+          } items-center gap-2 rounded-xl border border-border bg-bg-elevated px-3 py-2 focus-within:border-border-strong`}
+        >
           <Search size={15} className="text-text-faint" />
           <input
             value={search}
@@ -572,8 +644,86 @@ export default function FeedPage() {
           </form>
         )}
 
+        {filter === "Sites" && (
+          <form onSubmit={submitSite} className="space-y-1.5">
+            <div className="flex items-center gap-2 rounded-xl border border-border bg-bg-elevated px-3 py-2 focus-within:border-border-strong">
+              <Plus size={15} className="shrink-0 text-text-faint" />
+              <input
+                value={siteUrl}
+                onChange={(e) => {
+                  setSiteUrl(e.target.value);
+                  if (siteError) setSiteError(null);
+                }}
+                placeholder="Site URL"
+                className="w-full bg-transparent text-sm outline-none placeholder:text-text-faint"
+              />
+              <input
+                value={siteName}
+                onChange={(e) => setSiteName(e.target.value)}
+                placeholder="Name (optional)"
+                className="w-28 shrink-0 border-l border-border pl-2 bg-transparent text-sm outline-none placeholder:text-text-faint"
+              />
+              {siteUrl.trim() && (
+                <button
+                  type="submit"
+                  className="shrink-0 cursor-pointer rounded-lg bg-accent px-2.5 py-1 text-xs font-medium text-white transition-opacity hover:opacity-90"
+                >
+                  Save
+                </button>
+              )}
+            </div>
+            {siteError && (
+              <p className="px-1 text-xs text-red-400">{siteError}</p>
+            )}
+          </form>
+        )}
+
         <div className="flex-1 space-y-1 overflow-y-auto pr-1">
-          {status === "loading" ? (
+          {filter === "Sites" ? (
+            sites.length === 0 ? (
+              <p className="px-3 py-10 text-center text-sm text-text-muted">
+                No sites yet — save one above.
+              </p>
+            ) : (
+              sites.map((site) => {
+                const domain = new URL(site.url).hostname.replace(/^www\./, "");
+                return (
+                  <div
+                    key={site.id}
+                    className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-bg-sunken"
+                  >
+                    <a
+                      href={site.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex min-w-0 flex-1 items-center gap-2.5"
+                    >
+                      <Favicon domain={domain} />
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium">
+                          {site.name}
+                        </span>
+                        <span className="block truncate text-[11px] text-text-faint">
+                          {domain}
+                        </span>
+                      </span>
+                      <ExternalLink
+                        size={13}
+                        className="shrink-0 text-text-faint opacity-0 transition-opacity group-hover:opacity-100"
+                      />
+                    </a>
+                    <button
+                      onClick={() => deleteSite(site)}
+                      aria-label="Remove site"
+                      className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-text-faint opacity-0 transition-opacity hover:text-accent-text group-hover:opacity-100"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                );
+              })
+            )
+          ) : status === "loading" ? (
             <div className="flex items-center justify-center gap-2 py-10 text-sm text-text-muted">
               <Loader2 size={16} className="animate-spin" /> Loading feeds
             </div>
