@@ -48,6 +48,20 @@ function client() {
   return supabase;
 }
 
+// In-memory cache so returning to /blog renders instantly and refreshes in
+// the background (module state lives for the SPA session).
+export type BlogCache = { posts: Post[]; trash: Post[] };
+
+let cache: BlogCache | null = null;
+
+export function getBlogCache(): BlogCache | null {
+  return cache;
+}
+
+export function setBlogCache(next: BlogCache) {
+  cache = next;
+}
+
 // Active (non-deleted) posts, newest first.
 export async function listPosts(): Promise<Post[]> {
   const { data, error } = await client()

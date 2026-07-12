@@ -40,6 +40,24 @@ export type StickySection = {
 const cols =
   "id,body,kind,items,color,pinned,sectionId:section_id,position,deletedAt:deleted_at";
 
+// In-memory cache so returning to /stickies renders instantly and refreshes
+// in the background (module state lives for the SPA session).
+export type StickyCache = {
+  stickies: Sticky[];
+  sections: StickySection[];
+  trash: Sticky[];
+};
+
+let cache: StickyCache | null = null;
+
+export function getStickyCache(): StickyCache | null {
+  return cache;
+}
+
+export function setStickyCache(next: StickyCache) {
+  cache = next;
+}
+
 function client() {
   if (!supabase) throw new Error("Add Supabase env vars to use stickies.");
   return supabase;

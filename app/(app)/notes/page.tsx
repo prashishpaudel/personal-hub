@@ -53,6 +53,10 @@ function noteFromRow(row: NoteRow): Note {
   };
 }
 
+// In-memory cache so returning to /notes renders instantly and refreshes in
+// the background (module state lives for the SPA session).
+let notesCache: Note[] | null = null;
+
 export default function NotesPage() {
   const { confirm } = useDialog();
   const pendingSaveRef = useRef<Partial<Pick<Note, "title" | "body">>>({});
@@ -73,34 +77,48 @@ export default function NotesPage() {
   }, []);
 
   useEffect(() => {
-    async function load() {
+    async function load(hasCache: boolean) {
       if (!isSupabaseConfigured || !supabase) {
         setStatus("error");
         setMessage("Add Supabase env vars to load notes.");
         return;
       }
-      setStatus("loading");
+      if (!hasCache) setStatus("loading");
       const { data, error } = await supabase
         .from("notes")
         .select(cols)
         .order("updated_at", { ascending: false });
 
       if (error) {
-        setStatus("error");
-        setMessage(error.message);
+        if (!hasCache) {
+          setStatus("error");
+          setMessage(error.message);
+        }
         return;
       }
       const loaded = (data ?? []).map(noteFromRow);
+      notesCache = loaded;
       setNotes(loaded);
       setActiveId((current) => current || loaded[0]?.id || "");
       setStatus("idle");
     }
-    load();
+    // Render the cached list instantly, then refresh in the background.
+    if (notesCache) {
+      setNotes(notesCache);
+      setActiveId((current) => current || notesCache?.[0]?.id || "");
+      setStatus("idle");
+    }
+    load(!!notesCache);
   }, []);
 
   useEffect(() => {
     window.localStorage.setItem(fontSizeKey, String(fontSize));
   }, [fontSize]);
+
+  // Keep the cache in sync with edits/deletes.
+  useEffect(() => {
+    if (status === "idle" || status === "saving") notesCache = notes;
+  }, [status, notes]);
 
   useEffect(
     () => () => {

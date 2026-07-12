@@ -38,10 +38,12 @@ import {
   createSticky,
   deleteSection,
   deleteSticky,
+  getStickyCache,
   listSections,
   listStickies,
   listStickyTrash,
   restoreSticky,
+  setStickyCache,
   softDeleteSticky,
   updateSection,
   updateSticky,
@@ -650,20 +652,36 @@ export default function StickiesPage() {
   );
 
   useEffect(() => {
+    // Render the cached board instantly, then refresh in the background.
+    const cached = getStickyCache();
+    if (cached) {
+      setStickies(cached.stickies);
+      setSections(cached.sections);
+      setTrash(cached.trash);
+      if (cached.sections[0]?.pinned) setActive(cached.sections[0].id);
+      setStatus("idle");
+    }
     Promise.all([listStickies(), listSections(), listStickyTrash()])
       .then(([rows, secs, deleted]) => {
         setStickies(rows);
         setSections(secs);
         setTrash(deleted);
         // Land on the first pinned section when there is one.
-        if (secs[0]?.pinned) setActive(secs[0].id);
+        if (!cached && secs[0]?.pinned) setActive(secs[0].id);
         setStatus("idle");
       })
       .catch((err) => {
-        setStatus("error");
-        setMessage(err instanceof Error ? err.message : "Failed to load.");
+        if (!cached) {
+          setStatus("error");
+          setMessage(err instanceof Error ? err.message : "Failed to load.");
+        }
       });
   }, []);
+
+  // Keep the cache in sync with whatever the board currently shows.
+  useEffect(() => {
+    if (status === "idle") setStickyCache({ stickies, sections, trash });
+  }, [status, stickies, sections, trash]);
 
   async function add(kind: "text" | "list") {
     setMenuOpen(false);

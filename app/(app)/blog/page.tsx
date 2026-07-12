@@ -6,10 +6,12 @@ import { useEffect, useMemo, useState } from "react";
 import { PenLine, Plus, RotateCcw, Loader2, Trash2 } from "lucide-react";
 import {
   createDraft,
+  getBlogCache,
   hardDelete,
   listPosts,
   listTrash,
   restore,
+  setBlogCache,
   type Post,
 } from "@/lib/blogStore";
 import { useDialog } from "@/components/DialogProvider";
@@ -65,21 +67,35 @@ export default function BlogPage() {
   const [message, setMessage] = useState("");
   const [creating, setCreating] = useState(false);
 
-  async function load() {
+  async function load(hasCache = false) {
     try {
       const [active, deleted] = await Promise.all([listPosts(), listTrash()]);
       setPosts(active);
       setTrash(deleted);
       setStatus("idle");
     } catch (err) {
-      setStatus("error");
-      setMessage(err instanceof Error ? err.message : "Failed to load posts.");
+      if (!hasCache) {
+        setStatus("error");
+        setMessage(err instanceof Error ? err.message : "Failed to load posts.");
+      }
     }
   }
 
   useEffect(() => {
-    load();
+    // Render the cached lists instantly, then refresh in the background.
+    const cached = getBlogCache();
+    if (cached) {
+      setPosts(cached.posts);
+      setTrash(cached.trash);
+      setStatus("idle");
+    }
+    load(!!cached);
   }, []);
+
+  // Keep the cache in sync with the current lists.
+  useEffect(() => {
+    if (status === "idle") setBlogCache({ posts, trash });
+  }, [status, posts, trash]);
 
   const visible = useMemo(() => {
     if (tab === "trash") return trash;
