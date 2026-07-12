@@ -38,6 +38,7 @@ import {
   setCachedArticle,
 } from "@/lib/feedStore";
 import { listSaved, addSaved, removeSaved } from "@/lib/savedStore";
+import { useDialog } from "@/components/DialogProvider";
 
 function timeAgo(date: string): string {
   const diff = Date.now() - new Date(date).getTime();
@@ -85,6 +86,7 @@ function CategoryIcon({ category }: { category: string }) {
 }
 
 export default function FeedPage() {
+  const { confirm } = useDialog();
   const [items, setItems] = useState<FeedItem[]>([]);
   const [status, setStatus] = useState<"loading" | "idle" | "error">("loading");
   const [refreshing, setRefreshing] = useState(false);
@@ -238,6 +240,14 @@ export default function FeedPage() {
 
   async function toggleFav(item: FeedItem) {
     const wasSaved = favs.has(item.link);
+    if (wasSaved) {
+      const ok = await confirm({
+        title: "Unsave article",
+        message: `Remove "${item.title}" from saved?`,
+        confirmLabel: "Unsave",
+      });
+      if (!ok) return;
+    }
     // Optimistic: update the list now, reconcile with Supabase after.
     setSavedItems((cur) =>
       wasSaved
