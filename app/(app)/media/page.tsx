@@ -6,6 +6,8 @@ import {
   Trash2,
   Loader2,
   DownloadCloud,
+  Copy,
+  Pencil,
   Play,
   Check,
   ChevronDown,
@@ -38,6 +40,30 @@ function embedSrc(item: { type: MediaType; url: string }): string {
   return applePodcastEmbedUrl(item.url);
 }
 
+// Copy the item's original link, flashing a check as feedback.
+function CopyLinkButton({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => {
+        navigator.clipboard.writeText(url).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        });
+      }}
+      aria-label="Copy link"
+      title="Copy link"
+      className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-sunken hover:text-text"
+    >
+      {copied ? (
+        <Check size={14} className="text-accent-text" />
+      ) : (
+        <Copy size={14} />
+      )}
+    </button>
+  );
+}
+
 type Tab = "courses" | "videos" | "podcasts";
 
 const emptyCopy: Record<Tab, string> = {
@@ -47,7 +73,7 @@ const emptyCopy: Record<Tab, string> = {
 };
 
 export default function MediaPage() {
-  const { confirm } = useDialog();
+  const { confirm, prompt } = useDialog();
   const [items, setItems] = useState<Item[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,12 +131,27 @@ export default function MediaPage() {
     setBusy(true);
     setError("");
     const makeCourse = asCourse && !!playlistId;
+
+    // No name typed — try to auto-fill the real title (oEmbed / Data API).
+    let finalTitle: string | null = title.trim() || null;
+    if (!finalTitle) {
+      try {
+        const res = await fetch(
+          `/api/media/title?type=${type}&url=${encodeURIComponent(url.trim())}`
+        );
+        const json = await res.json();
+        if (json.title) finalTitle = json.title as string;
+      } catch {
+        /* keep null — card falls back to the generic label */
+      }
+    }
+
     const { data, error } = await supabase
       .from("media_items")
       .insert({
         type,
         url: url.trim(),
-        title: title.trim() || null,
+        title: finalTitle,
         is_course: makeCourse,
       })
       .select("id")
@@ -136,6 +177,28 @@ export default function MediaPage() {
     setTitle("");
     setAsCourse(false);
     await load();
+  }
+
+  async function renameItem(item: Item) {
+    if (!supabase) return;
+    const name = (
+      await prompt({
+        title: "Rename",
+        defaultValue: item.title ?? "",
+        placeholder: "Title",
+        confirmLabel: "Rename",
+      })
+    )?.trim();
+    if (name === undefined || name === null) return;
+    const next = name || null;
+    setItems((cur) => {
+      const updated = cur.map((i) =>
+        i.id === item.id ? { ...i, title: next } : i
+      );
+      setMediaCache(updated);
+      return updated;
+    });
+    await supabase.from("media_items").update({ title: next }).eq("id", item.id);
   }
 
   async function removeItem(id: string) {
@@ -355,6 +418,7 @@ export default function MediaPage() {
                     lessons={lessonsByCourse.get(item.id) ?? []}
                     onToggle={toggleLesson}
                     onRemove={removeItem}
+                    onRename={renameItem}
                   />
                 ))}
               </div>
@@ -365,7 +429,12 @@ export default function MediaPage() {
             videos.length > 0 ? (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {videos.map((item) => (
-                  <MediaCard key={item.id} item={item} onRemove={removeItem} />
+                  <MediaCard
+                    key={item.id}
+                    item={item}
+                    onRemove={removeItem}
+                    onRename={renameItem}
+                  />
                 ))}
               </div>
             ) : (
@@ -374,7 +443,13 @@ export default function MediaPage() {
           ) : audio.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {audio.map((item) => (
-                <MediaCard key={item.id} item={item} onRemove={removeItem} audio />
+                <MediaCard
+                  key={item.id}
+                  item={item}
+                  onRemove={removeItem}
+                  onRename={renameItem}
+                  audio
+                />
               ))}
             </div>
           ) : (
@@ -400,11 +475,13 @@ function CourseCard({
   lessons,
   onToggle,
   onRemove,
+  onRename,
 }: {
   item: Item;
   lessons: Lesson[];
   onToggle: (id: string, watched: boolean) => void;
   onRemove: (id: string) => void;
+  onRename: (item: Item) => void;
 }) {
   const listId = youtubePlaylistId(item.url);
   const watched = lessons.filter((l) => l.watched).length;
@@ -440,10 +517,18 @@ function CourseCard({
         <p className="min-w-0 flex-1 truncate text-sm font-medium">
           {item.title || "Course"}
         </p>
+        <CopyLinkButton url={item.url} />
+        <button
+          onClick={() => onRename(item)}
+          aria-label="Rename"
+          className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-sunken hover:text-text"
+        >
+          <Pencil size={14} />
+        </button>
         <button
           onClick={() => onRemove(item.id)}
           aria-label="Remove"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-sunken hover:text-accent-text"
+          className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-sunken hover:text-accent-text"
         >
           <Trash2 size={15} />
         </button>
@@ -529,10 +614,12 @@ function CourseCard({
 function MediaCard({
   item,
   onRemove,
+  onRename,
   audio = false,
 }: {
   item: Item;
   onRemove: (id: string) => void;
+  onRename: (item: Item) => void;
   audio?: boolean;
 }) {
   return (
@@ -561,10 +648,18 @@ function MediaCard({
         <p className="min-w-0 flex-1 truncate text-sm font-medium">
           {item.title || (audio ? "Podcast" : "Video")}
         </p>
+        <CopyLinkButton url={item.url} />
+        <button
+          onClick={() => onRename(item)}
+          aria-label="Rename"
+          className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-sunken hover:text-text"
+        >
+          <Pencil size={14} />
+        </button>
         <button
           onClick={() => onRemove(item.id)}
           aria-label="Remove"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-sunken hover:text-accent-text"
+          className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-sunken hover:text-accent-text"
         >
           <Trash2 size={15} />
         </button>
