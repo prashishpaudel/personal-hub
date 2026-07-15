@@ -68,6 +68,42 @@ create policy "Owner can delete sources"
   using (auth.uid() = user_id);
 
 -- ---------------------------------------------------------------------------
+-- Media sections — user-defined groups for videos (e.g. Business, Meditation)
+-- ---------------------------------------------------------------------------
+create table if not exists public.media_sections (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  name text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists media_sections_user_idx
+  on public.media_sections (user_id);
+
+alter table public.media_sections enable row level security;
+
+drop policy if exists "Owner can read media sections" on public.media_sections;
+create policy "Owner can read media sections"
+  on public.media_sections for select to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "Owner can insert media sections" on public.media_sections;
+create policy "Owner can insert media sections"
+  on public.media_sections for insert to authenticated
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Owner can update media sections" on public.media_sections;
+create policy "Owner can update media sections"
+  on public.media_sections for update to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Owner can delete media sections" on public.media_sections;
+create policy "Owner can delete media sections"
+  on public.media_sections for delete to authenticated
+  using (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------------
 -- Media items — videos / podcasts (managed from the Media UI)
 -- ---------------------------------------------------------------------------
 create table if not exists public.media_items (
@@ -77,6 +113,7 @@ create table if not exists public.media_items (
   url text not null,
   title text,
   is_course boolean not null default false, -- youtube playlist expanded into lessons
+  section_id uuid references public.media_sections (id) on delete set null,
   created_at timestamptz not null default now()
 );
 

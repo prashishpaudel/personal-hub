@@ -8,6 +8,12 @@ export type MediaRow = {
   url: string;
   title: string | null;
   is_course: boolean;
+  section_id: string | null;
+};
+
+export type MediaSection = {
+  id: string;
+  name: string;
 };
 
 const TTL_MS = 5 * 60 * 1000;

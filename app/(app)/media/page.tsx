@@ -24,6 +24,7 @@ import {
   getMediaCache,
   setMediaCache,
   type MediaRow as Item,
+  type MediaSection,
   type MediaType,
 } from "@/lib/mediaStore";
 import {
@@ -83,6 +84,9 @@ export default function MediaPage() {
   const [asCourse, setAsCourse] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [vSections, setVSections] = useState<MediaSection[]>([]);
+  const [vActive, setVActive] = useState<string>("all");
+  const [vActionsFor, setVActionsFor] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!supabase) {
@@ -91,12 +95,17 @@ export default function MediaPage() {
     }
     const { data } = await supabase
       .from("media_items")
-      .select("id,type,url,title,is_course")
+      .select("id,type,url,title,is_course,section_id")
       .order("created_at", { ascending: false });
     const rows = (data as Item[]) ?? [];
     setItems(rows);
     setMediaCache(rows);
     setLoading(false);
+    const { data: secs } = await supabase
+      .from("media_sections")
+      .select("id,name")
+      .order("name", { ascending: true });
+    setVSections((secs as MediaSection[]) ?? []);
     const courseIds = rows.filter((r) => r.is_course).map((r) => r.id);
     if (courseIds.length > 0) {
       try {
@@ -124,6 +133,18 @@ export default function MediaPage() {
     () => (type === "youtube" ? youtubePlaylistId(url) : null),
     [type, url]
   );
+
+  // Close section actions on outside tap.
+  useEffect(() => {
+    if (!vActionsFor) return;
+    const onDown = (e: PointerEvent) => {
+      if (!(e.target as Element).closest?.("[data-vsection-tab]")) {
+        setVActionsFor(null);
+      }
+    };
+    window.addEventListener("pointerdown", onDown);
+    return () => window.removeEventListener("pointerdown", onDown);
+  }, [vActionsFor]);
 
   async function addItem(e: React.FormEvent) {
     e.preventDefault();
@@ -153,6 +174,11 @@ export default function MediaPage() {
         url: url.trim(),
         title: finalTitle,
         is_course: makeCourse,
+        // Plain videos inherit the active video section.
+        section_id:
+          type === "youtube" && !makeCourse && vActive !== "all"
+            ? vActive
+            : null,
       })
       .select("id")
       .single();
@@ -201,6 +227,80 @@ export default function MediaPage() {
     await supabase.from("media_items").update({ title: next }).eq("id", item.id);
   }
 
+  async function addVSection() {
+    if (!supabase) return;
+    const name = (
+      await prompt({ title: "New section", placeholder: "Section name" })
+    )?.trim();
+    if (!name) return;
+    const { data, error } = await supabase
+      .from("media_sections")
+      .insert({ name })
+      .select("id,name")
+      .single();
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    const sec = data as MediaSection;
+    setVSections((cur) =>
+      [...cur, sec].sort((a, b) => a.name.localeCompare(b.name))
+    );
+    setVActive(sec.id);
+  }
+
+  async function renameVSection(section: MediaSection) {
+    if (!supabase) return;
+    const name = (
+      await prompt({
+        title: "Rename section",
+        defaultValue: section.name,
+        confirmLabel: "Rename",
+      })
+    )?.trim();
+    if (!name || name === section.name) return;
+    setVSections((cur) =>
+      cur
+        .map((s) => (s.id === section.id ? { ...s, name } : s))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    );
+    await supabase.from("media_sections").update({ name }).eq("id", section.id);
+  }
+
+  async function removeVSection(section: MediaSection) {
+    if (!supabase) return;
+    const ok = await confirm({
+      title: "Delete section",
+      message: `Delete "${section.name}"? Its videos move back to All.`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
+    setVSections((cur) => cur.filter((s) => s.id !== section.id));
+    setItems((cur) =>
+      cur.map((i) =>
+        i.section_id === section.id ? { ...i, section_id: null } : i
+      )
+    );
+    setVActive("all");
+    await supabase.from("media_sections").delete().eq("id", section.id);
+  }
+
+  async function moveToSection(item: Item, sectionId: string | null) {
+    if (!supabase) return;
+    setItems((cur) => {
+      const next = cur.map((i) =>
+        i.id === item.id ? { ...i, section_id: sectionId } : i
+      );
+      setMediaCache(next);
+      return next;
+    });
+    await supabase
+      .from("media_items")
+      .update({ section_id: sectionId })
+      .eq("id", item.id);
+  }
+
   async function removeItem(id: string) {
     if (!supabase) return;
     const item = items.find((i) => i.id === id);
@@ -235,6 +335,8 @@ export default function MediaPage() {
   const courses = items.filter((i) => i.type === "youtube" && i.is_course);
   const videos = items.filter((i) => i.type === "youtube" && !i.is_course);
   const audio = items.filter((i) => i.type !== "youtube");
+  const visibleVideos =
+    vActive === "all" ? videos : videos.filter((i) => i.section_id === vActive);
 
   const [tab, setTab] = useState<Tab>("courses");
   const tabPicked = useRef(false);
@@ -426,20 +528,97 @@ export default function MediaPage() {
               <EmptyTab tab="courses" />
             )
           ) : tab === "videos" ? (
-            videos.length > 0 ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {videos.map((item) => (
-                  <MediaCard
-                    key={item.id}
-                    item={item}
-                    onRemove={removeItem}
-                    onRename={renameItem}
-                  />
-                ))}
+            <>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  onClick={() => {
+                    setVActive("all");
+                    setVActionsFor(null);
+                  }}
+                  className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                    vActive === "all"
+                      ? "bg-accent text-white shadow-sm"
+                      : "border border-border text-text-muted hover:bg-bg-sunken hover:text-text"
+                  }`}
+                >
+                  All
+                </button>
+                {vSections.map((section) => {
+                  const isActive = vActive === section.id;
+                  return (
+                    <span key={section.id} className="relative" data-vsection-tab>
+                      <button
+                        onClick={() => {
+                          if (isActive) {
+                            setVActionsFor((cur) =>
+                              cur === section.id ? null : section.id
+                            );
+                          } else {
+                            setVActive(section.id);
+                            setVActionsFor(null);
+                          }
+                        }}
+                        className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                          isActive
+                            ? "bg-accent text-white shadow-sm"
+                            : "border border-border text-text-muted hover:bg-bg-sunken hover:text-text"
+                        }`}
+                      >
+                        {section.name}
+                      </button>
+                      {vActionsFor === section.id && (
+                        <span className="absolute bottom-full left-0 z-20 mb-1 flex items-center gap-0.5 rounded-lg border border-border bg-bg-elevated px-1 py-0.5 shadow-lg">
+                          <button
+                            onClick={() => {
+                              setVActionsFor(null);
+                              renameVSection(section);
+                            }}
+                            aria-label="Rename section"
+                            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-text-faint hover:bg-bg-sunken hover:text-text"
+                          >
+                            <Pencil size={13} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setVActionsFor(null);
+                              removeVSection(section);
+                            }}
+                            aria-label="Delete section"
+                            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-text-faint hover:bg-bg-sunken hover:text-accent-text"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </span>
+                      )}
+                    </span>
+                  );
+                })}
+                <button
+                  onClick={addVSection}
+                  aria-label="New section"
+                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-dashed border-border text-text-faint hover:bg-bg-sunken hover:text-text"
+                >
+                  <Plus size={15} />
+                </button>
               </div>
-            ) : (
-              <EmptyTab tab="videos" />
-            )
+
+              {visibleVideos.length > 0 ? (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {visibleVideos.map((item) => (
+                    <MediaCard
+                      key={item.id}
+                      item={item}
+                      onRemove={removeItem}
+                      onRename={renameItem}
+                      sections={vSections}
+                      onSection={moveToSection}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <EmptyTab tab="videos" />
+              )}
+            </>
           ) : audio.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {audio.map((item) => (
@@ -615,11 +794,15 @@ function MediaCard({
   item,
   onRemove,
   onRename,
+  sections,
+  onSection,
   audio = false,
 }: {
   item: Item;
   onRemove: (id: string) => void;
   onRename: (item: Item) => void;
+  sections?: MediaSection[];
+  onSection?: (item: Item, sectionId: string | null) => void;
   audio?: boolean;
 }) {
   return (
@@ -648,6 +831,21 @@ function MediaCard({
         <p className="min-w-0 flex-1 truncate text-sm font-medium">
           {item.title || (audio ? "Podcast" : "Video")}
         </p>
+        {sections && sections.length > 0 && onSection && (
+          <select
+            value={item.section_id ?? ""}
+            onChange={(e) => onSection(item, e.target.value || null)}
+            aria-label="Section"
+            className="max-w-24 shrink-0 cursor-pointer truncate rounded-lg border border-border bg-transparent px-1.5 py-1 text-xs text-text-muted outline-none focus:border-border-strong"
+          >
+            <option value="">None</option>
+            {sections.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        )}
         <CopyLinkButton url={item.url} />
         <button
           onClick={() => onRename(item)}
