@@ -1,5 +1,6 @@
 import {
   LayoutDashboard,
+  Link2,
   NotebookPen,
   StickyNote,
   Sprout,
@@ -53,6 +54,12 @@ export const navItems: NavItem[] = [
     label: "Feed",
     icon: Rss,
     blurb: "News from your sources",
+  },
+  {
+    href: "/links",
+    label: "Links",
+    icon: Link2,
+    blurb: "Links worth keeping",
   },
   {
     href: "/media",

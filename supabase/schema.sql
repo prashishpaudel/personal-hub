@@ -303,6 +303,46 @@ create policy "Owner can delete site bookmarks"
   using (auth.uid() = user_id);
 
 -- ---------------------------------------------------------------------------
+-- Link bookmarks — general link keeper (repos, tools, references) with an
+-- optional note; the top-level Links section
+-- ---------------------------------------------------------------------------
+create table if not exists public.link_bookmarks (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  name text not null default '',
+  url text not null,
+  note text not null default '',
+  created_at timestamptz not null default now(),
+  unique (user_id, url)
+);
+
+create index if not exists link_bookmarks_user_created_idx
+  on public.link_bookmarks (user_id, created_at desc);
+
+alter table public.link_bookmarks enable row level security;
+
+drop policy if exists "Owner can read links" on public.link_bookmarks;
+create policy "Owner can read links"
+  on public.link_bookmarks for select to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "Owner can insert links" on public.link_bookmarks;
+create policy "Owner can insert links"
+  on public.link_bookmarks for insert to authenticated
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Owner can update links" on public.link_bookmarks;
+create policy "Owner can update links"
+  on public.link_bookmarks for update to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Owner can delete links" on public.link_bookmarks;
+create policy "Owner can delete links"
+  on public.link_bookmarks for delete to authenticated
+  using (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------------
 -- Sticky sections — user-defined groups shown as tabs on the sticky board
 -- ---------------------------------------------------------------------------
 create table if not exists public.sticky_sections (
