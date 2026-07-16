@@ -236,6 +236,7 @@ export default function FeedPage() {
   }, [selected, fetchedContent]);
 
   function pickCategory(cat: string) {
+    closeReader();
     setFilter(cat);
     setSource(null);
     setFeedUI({ filter: cat, source: null });
@@ -243,6 +244,7 @@ export default function FeedPage() {
   }
 
   function pickSource(src: string) {
+    closeReader();
     setSource(src);
     setFilter("All");
     setFeedUI({ filter: "All", source: src });
