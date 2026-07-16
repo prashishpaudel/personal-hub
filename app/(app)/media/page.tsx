@@ -199,6 +199,7 @@ export default function MediaPage() {
   const [error, setError] = useState("");
   const [vSections, setVSections] = useState<MediaSection[]>([]);
   const [vActive, setVActive] = useState<string>("all");
+  const [cActive, setCActive] = useState<string>("all");
   const [vActionsFor, setVActionsFor] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -218,7 +219,7 @@ export default function MediaPage() {
     setLoading(false);
     const { data: secs } = await supabase
       .from("media_sections")
-      .select("id,name")
+      .select("id,name,kind")
       .order("name", { ascending: true });
     setVSections((secs as MediaSection[]) ?? []);
     const courseIds = rows.filter((r) => r.is_course).map((r) => r.id);
@@ -289,10 +290,16 @@ export default function MediaPage() {
         url: url.trim(),
         title: finalTitle,
         is_course: makeCourse,
-        // Plain videos inherit the active video section.
+        // Videos/courses inherit their tab's active section.
         section_id:
-          type === "youtube" && !makeCourse && vActive !== "all"
-            ? vActive
+          type === "youtube"
+            ? makeCourse
+              ? cActive !== "all"
+                ? cActive
+                : null
+              : vActive !== "all"
+                ? vActive
+                : null
             : null,
       })
       .select("id")
@@ -342,7 +349,7 @@ export default function MediaPage() {
     await supabase.from("media_items").update({ title: next }).eq("id", item.id);
   }
 
-  async function addVSection() {
+  async function addVSection(kind: "video" | "course") {
     if (!supabase) return;
     const name = (
       await prompt({ title: "New section", placeholder: "Section name" })
@@ -350,8 +357,8 @@ export default function MediaPage() {
     if (!name) return;
     const { data, error } = await supabase
       .from("media_sections")
-      .insert({ name })
-      .select("id,name")
+      .insert({ name, kind })
+      .select("id,name,kind")
       .single();
     if (error) {
       setError(error.message);
@@ -361,7 +368,8 @@ export default function MediaPage() {
     setVSections((cur) =>
       [...cur, sec].sort((a, b) => a.name.localeCompare(b.name))
     );
-    setVActive(sec.id);
+    if (kind === "video") setVActive(sec.id);
+    else setCActive(sec.id);
   }
 
   async function renameVSection(section: MediaSection) {
@@ -397,7 +405,8 @@ export default function MediaPage() {
         i.section_id === section.id ? { ...i, section_id: null } : i
       )
     );
-    setVActive("all");
+    setVActive((cur) => (cur === section.id ? "all" : cur));
+    setCActive((cur) => (cur === section.id ? "all" : cur));
     await supabase.from("media_sections").delete().eq("id", section.id);
   }
 
@@ -461,8 +470,14 @@ export default function MediaPage() {
   const courses = items.filter((i) => i.type === "youtube" && i.is_course);
   const videos = items.filter((i) => i.type === "youtube" && !i.is_course);
   const audio = items.filter((i) => i.type !== "youtube");
+  const videoSections = vSections.filter((s) => s.kind === "video");
+  const courseSections = vSections.filter((s) => s.kind === "course");
   const visibleVideos =
     vActive === "all" ? videos : videos.filter((i) => i.section_id === vActive);
+  const visibleCourses =
+    cActive === "all"
+      ? courses
+      : courses.filter((i) => i.section_id === cActive);
 
   const [tab, setTab] = useState<Tab>("courses");
   const tabPicked = useRef(false);
@@ -637,97 +652,77 @@ export default function MediaPage() {
           </div>
 
           {tab === "courses" ? (
-            courses.length > 0 ? (
-              <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-                {courses.map((item) => (
-                  <CourseCard
-                    key={item.id}
-                    item={item}
-                    lessons={lessonsByCourse.get(item.id) ?? []}
-                    onToggle={toggleLesson}
-                    onRemove={removeItem}
-                    onRename={renameItem}
-                    onProgress={saveProgress}
-                  />
-                ))}
-              </div>
-            ) : (
-              <EmptyTab tab="courses" />
-            )
+            <>
+              <SectionTabs
+                sections={courseSections}
+                active={cActive}
+                countOf={(id) =>
+                  courses.filter((i) => i.section_id === id).length
+                }
+                actionsFor={vActionsFor}
+                onPick={(id) => {
+                  setCActive(id);
+                  setVActionsFor(null);
+                }}
+                onToggleActions={(id) =>
+                  setVActionsFor((cur) => (cur === id ? null : id))
+                }
+                onRename={(s) => {
+                  setVActionsFor(null);
+                  renameVSection(s);
+                }}
+                onRemove={(s) => {
+                  setVActionsFor(null);
+                  removeVSection(s);
+                }}
+                onAdd={() => addVSection("course")}
+              />
+              {visibleCourses.length > 0 ? (
+                <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+                  {visibleCourses.map((item) => (
+                    <CourseCard
+                      key={item.id}
+                      item={item}
+                      lessons={lessonsByCourse.get(item.id) ?? []}
+                      onToggle={toggleLesson}
+                      onRemove={removeItem}
+                      onRename={renameItem}
+                      onProgress={saveProgress}
+                      sections={courseSections}
+                      onSection={moveToSection}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <EmptyTab tab="courses" />
+              )}
+            </>
           ) : tab === "videos" ? (
             <>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <button
-                  onClick={() => {
-                    setVActive("all");
-                    setVActionsFor(null);
-                  }}
-                  className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                    vActive === "all"
-                      ? "bg-accent text-white shadow-sm"
-                      : "border border-border text-text-muted hover:bg-bg-sunken hover:text-text"
-                  }`}
-                >
-                  All
-                </button>
-                {vSections.map((section) => {
-                  const isActive = vActive === section.id;
-                  return (
-                    <span key={section.id} className="relative" data-vsection-tab>
-                      <button
-                        onClick={() => {
-                          if (isActive) {
-                            setVActionsFor((cur) =>
-                              cur === section.id ? null : section.id
-                            );
-                          } else {
-                            setVActive(section.id);
-                            setVActionsFor(null);
-                          }
-                        }}
-                        className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                          isActive
-                            ? "bg-accent text-white shadow-sm"
-                            : "border border-border text-text-muted hover:bg-bg-sunken hover:text-text"
-                        }`}
-                      >
-                        {section.name}
-                      </button>
-                      {vActionsFor === section.id && (
-                        <span className="absolute bottom-full left-0 z-20 mb-1 flex items-center gap-0.5 rounded-lg border border-border bg-bg-elevated px-1 py-0.5 shadow-lg">
-                          <button
-                            onClick={() => {
-                              setVActionsFor(null);
-                              renameVSection(section);
-                            }}
-                            aria-label="Rename section"
-                            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-text-faint hover:bg-bg-sunken hover:text-text"
-                          >
-                            <Pencil size={13} />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setVActionsFor(null);
-                              removeVSection(section);
-                            }}
-                            aria-label="Delete section"
-                            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-text-faint hover:bg-bg-sunken hover:text-accent-text"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </span>
-                      )}
-                    </span>
-                  );
-                })}
-                <button
-                  onClick={addVSection}
-                  aria-label="New section"
-                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-dashed border-border text-text-faint hover:bg-bg-sunken hover:text-text"
-                >
-                  <Plus size={15} />
-                </button>
-              </div>
+              <SectionTabs
+                sections={videoSections}
+                active={vActive}
+                countOf={(id) =>
+                  videos.filter((i) => i.section_id === id).length
+                }
+                actionsFor={vActionsFor}
+                onPick={(id) => {
+                  setVActive(id);
+                  setVActionsFor(null);
+                }}
+                onToggleActions={(id) =>
+                  setVActionsFor((cur) => (cur === id ? null : id))
+                }
+                onRename={(s) => {
+                  setVActionsFor(null);
+                  renameVSection(s);
+                }}
+                onRemove={(s) => {
+                  setVActionsFor(null);
+                  removeVSection(s);
+                }}
+                onAdd={() => addVSection("video")}
+              />
 
               {visibleVideos.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -738,7 +733,7 @@ export default function MediaPage() {
                       onRemove={removeItem}
                       onRename={renameItem}
                     onProgress={saveProgress}
-                      sections={vSections}
+                      sections={videoSections}
                       onSection={moveToSection}
                     />
                   ))}
@@ -769,6 +764,98 @@ export default function MediaPage() {
   );
 }
 
+// Shared section pill row (Videos and Courses tabs).
+function SectionTabs({
+  sections,
+  active,
+  actionsFor,
+  countOf,
+  onPick,
+  onToggleActions,
+  onRename,
+  onRemove,
+  onAdd,
+}: {
+  sections: MediaSection[];
+  active: string;
+  actionsFor: string | null;
+  countOf: (id: string) => number;
+  onPick: (id: string) => void;
+  onToggleActions: (id: string) => void;
+  onRename: (s: MediaSection) => void;
+  onRemove: (s: MediaSection) => void;
+  onAdd: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <button
+        onClick={() => onPick("all")}
+        className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+          active === "all"
+            ? "bg-accent text-white shadow-sm"
+            : "border border-border text-text-muted hover:bg-bg-sunken hover:text-text"
+        }`}
+      >
+        All
+      </button>
+      {sections.map((section) => {
+        const isActive = active === section.id;
+        const count = countOf(section.id);
+        return (
+          <span key={section.id} className="relative" data-vsection-tab>
+            <button
+              onClick={() =>
+                isActive ? onToggleActions(section.id) : onPick(section.id)
+              }
+              className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                isActive
+                  ? "bg-accent text-white shadow-sm"
+                  : "border border-border text-text-muted hover:bg-bg-sunken hover:text-text"
+              }`}
+            >
+              {section.name}
+              {count > 0 && (
+                <span
+                  className={`text-xs tabular-nums ${
+                    isActive ? "text-white/70" : "text-text-faint"
+                  }`}
+                >
+                  {count}
+                </span>
+              )}
+            </button>
+            {actionsFor === section.id && (
+              <span className="absolute bottom-full left-0 z-20 mb-1 flex items-center gap-0.5 rounded-lg border border-border bg-bg-elevated px-1 py-0.5 shadow-lg">
+                <button
+                  onClick={() => onRename(section)}
+                  aria-label="Rename section"
+                  className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-text-faint hover:bg-bg-sunken hover:text-text"
+                >
+                  <Pencil size={13} />
+                </button>
+                <button
+                  onClick={() => onRemove(section)}
+                  aria-label="Delete section"
+                  className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-text-faint hover:bg-bg-sunken hover:text-accent-text"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </span>
+            )}
+          </span>
+        );
+      })}
+      <button
+        onClick={onAdd}
+        aria-label="New section"
+        className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-dashed border-border text-text-faint hover:bg-bg-sunken hover:text-text"
+      >
+        <Plus size={15} />
+      </button>
+    </div>
+  );
+}
+
 function EmptyTab({ tab }: { tab: Tab }) {
   return (
     <div className="flex flex-col items-center gap-2 py-14 text-text-muted">
@@ -785,6 +872,8 @@ function CourseCard({
   onRemove,
   onRename,
   onProgress,
+  sections,
+  onSection,
 }: {
   item: Item;
   lessons: Lesson[];
@@ -792,7 +881,24 @@ function CourseCard({
   onRemove: (id: string) => void;
   onRename: (item: Item) => void;
   onProgress?: (item: Item, videoId: string | null, seconds: number) => void;
+  sections?: MediaSection[];
+  onSection?: (item: Item, sectionId: string | null) => void;
 }) {
+  const sectionPicker = sections && sections.length > 0 && onSection && (
+    <select
+      value={item.section_id ?? ""}
+      onChange={(e) => onSection(item, e.target.value || null)}
+      aria-label="Section"
+      className="max-w-24 shrink-0 cursor-pointer truncate rounded-lg border border-border bg-transparent px-1.5 py-1 text-xs text-text-muted outline-none focus:border-border-strong"
+    >
+      <option value="">None</option>
+      {sections.map((s) => (
+        <option key={s.id} value={s.id}>
+          {s.name}
+        </option>
+      ))}
+    </select>
+  );
   const listId = youtubePlaylistId(item.url);
   const watched = lessons.filter((l) => l.watched).length;
   const total = lessons.length;
@@ -847,6 +953,7 @@ function CourseCard({
             </p>
           )}
         </div>
+        {sectionPicker}
         <CopyLinkButton url={item.url} />
         <button
           onClick={() => onRename(item)}

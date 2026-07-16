@@ -74,6 +74,7 @@ create table if not exists public.media_sections (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   name text not null,
+  kind text not null default 'video' check (kind in ('video', 'course')),
   created_at timestamptz not null default now()
 );
 
