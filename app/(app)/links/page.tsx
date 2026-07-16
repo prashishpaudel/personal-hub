@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ExternalLink,
   Globe,
+  GripVertical,
   Link2,
   Loader2,
   Pencil,
@@ -11,6 +12,22 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
+import {
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   addLink,
   getLinkCache,
@@ -44,6 +61,89 @@ function Favicon({ domain }: { domain: string }) {
   );
 }
 
+// One drag-sortable link row.
+function LinkRow({
+  link,
+  draggable,
+  onEdit,
+  onDelete,
+}: {
+  link: LinkBookmark;
+  draggable: boolean;
+  onEdit: (link: LinkBookmark) => void;
+  onDelete: (link: LinkBookmark) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: link.id, disabled: !draggable });
+  const domain = domainOf(link.url);
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`group flex items-center gap-1.5 rounded-xl px-2 py-2.5 transition-colors hover:bg-bg-sunken ${
+        isDragging ? "z-10 bg-bg-elevated opacity-80 shadow-lg" : ""
+      }`}
+    >
+      {draggable && (
+        <button
+          {...attributes}
+          {...listeners}
+          aria-label="Drag"
+          className="sticky-ctl flex h-6 w-5 shrink-0 cursor-grab touch-none items-center justify-center rounded text-text-faint opacity-0 transition-opacity hover:text-text-muted group-hover:opacity-100 active:cursor-grabbing"
+        >
+          <GripVertical size={14} />
+        </button>
+      )}
+      <a
+        href={link.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex min-w-0 flex-1 items-center gap-2.5"
+      >
+        <Favicon domain={domain} />
+        <span className="min-w-0">
+          <span className="flex items-baseline gap-2">
+            <span className="truncate text-sm font-medium">{link.name}</span>
+            <span className="shrink-0 text-[11px] text-text-faint">
+              {domain}
+            </span>
+          </span>
+          {link.note && (
+            <span className="block truncate text-xs text-text-muted">
+              {link.note}
+            </span>
+          )}
+        </span>
+        <ExternalLink
+          size={13}
+          className="shrink-0 text-text-faint opacity-0 transition-opacity group-hover:opacity-100"
+        />
+      </a>
+      <button
+        onClick={() => onEdit(link)}
+        aria-label="Edit"
+        className="sticky-ctl flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-text-faint opacity-0 transition-opacity hover:text-text group-hover:opacity-100"
+      >
+        <Pencil size={14} />
+      </button>
+      <button
+        onClick={() => onDelete(link)}
+        aria-label="Remove"
+        className="sticky-ctl flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-text-faint opacity-0 transition-opacity hover:text-accent-text group-hover:opacity-100"
+      >
+        <Trash2 size={14} />
+      </button>
+    </div>
+  );
+}
+
 export default function LinksPage() {
   const { confirm, prompt } = useDialog();
   const [links, setLinks] = useState<LinkBookmark[]>([]);
@@ -55,6 +155,10 @@ export default function LinksPage() {
   const [note, setNote] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 6 } })
+  );
 
   useEffect(() => {
     const cached = getLinkCache();
@@ -106,7 +210,10 @@ export default function LinksPage() {
     setAdding(true);
     setFormError(null);
     try {
-      const link = await addLink(name.trim() || host, full, note.trim());
+      const top = links.length
+        ? Math.min(...links.map((l) => l.position)) - 1
+        : 0;
+      const link = await addLink(name.trim() || host, full, note.trim(), top);
       setLinks((cur) => [link, ...cur]);
       setUrl("");
       setName("");
@@ -140,6 +247,25 @@ export default function LinksPage() {
       cur.map((l) => (l.id === link.id ? { ...l, ...patch } : l))
     );
     updateLink(link.id, patch).catch(() => {});
+  }
+
+  function onDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const from = links.findIndex((l) => l.id === active.id);
+    const to = links.findIndex((l) => l.id === over.id);
+    if (from < 0 || to < 0) return;
+    const next = arrayMove(links, from, to);
+    const prev = next[to - 1]?.position;
+    const after = next[to + 1]?.position;
+    let position: number;
+    if (prev === undefined && after === undefined) position = 0;
+    else if (prev === undefined) position = after! - 1;
+    else if (after === undefined) position = prev + 1;
+    else position = (prev + after) / 2;
+    next[to] = { ...next[to], position };
+    setLinks(next);
+    updateLink(String(active.id), { position }).catch(() => {});
   }
 
   async function remove(link: LinkBookmark) {
@@ -235,59 +361,28 @@ export default function LinksPage() {
           </p>
         </div>
       ) : (
-        <div className="space-y-0.5">
-          {filtered.map((link) => {
-            const domain = domainOf(link.url);
-            return (
-              <div
-                key={link.id}
-                className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-bg-sunken"
-              >
-                <a
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex min-w-0 flex-1 items-center gap-2.5"
-                >
-                  <Favicon domain={domain} />
-                  <span className="min-w-0">
-                    <span className="flex items-baseline gap-2">
-                      <span className="truncate text-sm font-medium">
-                        {link.name}
-                      </span>
-                      <span className="shrink-0 text-[11px] text-text-faint">
-                        {domain}
-                      </span>
-                    </span>
-                    {link.note && (
-                      <span className="block truncate text-xs text-text-muted">
-                        {link.note}
-                      </span>
-                    )}
-                  </span>
-                  <ExternalLink
-                    size={13}
-                    className="shrink-0 text-text-faint opacity-0 transition-opacity group-hover:opacity-100"
-                  />
-                </a>
-                <button
-                  onClick={() => edit(link)}
-                  aria-label="Edit"
-                  className="sticky-ctl flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-text-faint opacity-0 transition-opacity hover:text-text group-hover:opacity-100"
-                >
-                  <Pencil size={14} />
-                </button>
-                <button
-                  onClick={() => remove(link)}
-                  aria-label="Remove"
-                  className="sticky-ctl flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-text-faint opacity-0 transition-opacity hover:text-accent-text group-hover:opacity-100"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            );
-          })}
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={onDragEnd}
+        >
+          <SortableContext
+            items={filtered.map((l) => l.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-0.5">
+              {filtered.map((link) => (
+                <LinkRow
+                  key={link.id}
+                  link={link}
+                  draggable={!query.trim()}
+                  onEdit={edit}
+                  onDelete={remove}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
     </div>
   );

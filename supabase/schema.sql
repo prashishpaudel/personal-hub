@@ -319,6 +319,7 @@ create table if not exists public.link_bookmarks (
   name text not null default '',
   url text not null,
   note text not null default '',
+  position double precision not null default 0,
   created_at timestamptz not null default now(),
   unique (user_id, url)
 );

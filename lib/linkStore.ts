@@ -7,9 +7,10 @@ export type LinkBookmark = {
   name: string;
   url: string;
   note: string;
+  position: number;
 };
 
-const cols = "id,name,url,note";
+const cols = "id,name,url,note,position";
 
 function client() {
   if (!supabase) throw new Error("Add Supabase env vars to use links.");
@@ -32,7 +33,7 @@ export async function listLinks(): Promise<LinkBookmark[]> {
   const { data, error } = await client()
     .from("link_bookmarks")
     .select(cols)
-    .order("created_at", { ascending: false });
+    .order("position", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as LinkBookmark[];
 }
@@ -40,11 +41,12 @@ export async function listLinks(): Promise<LinkBookmark[]> {
 export async function addLink(
   name: string,
   url: string,
-  note: string
+  note: string,
+  position: number
 ): Promise<LinkBookmark> {
   const { data, error } = await client()
     .from("link_bookmarks")
-    .insert({ name, url, note })
+    .insert({ name, url, note, position })
     .select(cols)
     .single();
   if (error) throw new Error(error.message);
@@ -53,7 +55,7 @@ export async function addLink(
 
 export async function updateLink(
   id: string,
-  patch: Partial<Pick<LinkBookmark, "name" | "note">>
+  patch: Partial<Pick<LinkBookmark, "name" | "note" | "position">>
 ): Promise<void> {
   const { error } = await client()
     .from("link_bookmarks")
