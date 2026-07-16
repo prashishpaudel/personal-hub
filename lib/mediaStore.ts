@@ -9,6 +9,8 @@ export type MediaRow = {
   title: string | null;
   is_course: boolean;
   section_id: string | null;
+  progress_seconds: number;
+  progress_video_id: string | null;
 };
 
 export type MediaSection = {

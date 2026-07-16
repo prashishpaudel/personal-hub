@@ -41,6 +41,119 @@ function embedSrc(item: { type: MediaType; url: string }): string {
   return applePodcastEmbedUrl(item.url);
 }
 
+// --- YouTube playback-position tracking -------------------------------------
+
+type YTPlayer = {
+  getCurrentTime?: () => number;
+  getVideoData?: () => { video_id?: string };
+  destroy?: () => void;
+};
+
+type YTGlobal = {
+  YT?: { Player: new (el: HTMLElement, opts: unknown) => YTPlayer };
+  onYouTubeIframeAPIReady?: () => void;
+};
+
+let ytApiPromise: Promise<void> | null = null;
+
+function loadYouTubeApi(): Promise<void> {
+  const w = window as unknown as YTGlobal;
+  if (w.YT?.Player) return Promise.resolve();
+  if (!ytApiPromise) {
+    ytApiPromise = new Promise((resolve) => {
+      const prev = w.onYouTubeIframeAPIReady;
+      w.onYouTubeIframeAPIReady = () => {
+        prev?.();
+        resolve();
+      };
+      const s = document.createElement("script");
+      s.src = "https://www.youtube.com/iframe_api";
+      document.head.appendChild(s);
+    });
+  }
+  return ytApiPromise;
+}
+
+function withResume(src: string, seconds: number): string {
+  const sep = src.includes("?") ? "&" : "?";
+  const start = seconds > 30 ? `&start=${seconds}` : "";
+  return `${src}${sep}enablejsapi=1${start}`;
+}
+
+function formatTime(s: number): string {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return h > 0
+    ? `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`
+    : `${m}:${String(sec).padStart(2, "0")}`;
+}
+
+// Watches a YouTube iframe and reports playback position every ~15s while
+// playing, on pause, and on unmount.
+function useYouTubeProgress(
+  enabled: boolean,
+  onProgress: (videoId: string | null, seconds: number) => void
+) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const onProgressRef = useRef(onProgress);
+  onProgressRef.current = onProgress;
+
+  useEffect(() => {
+    if (!enabled || !iframeRef.current) return;
+    let player: YTPlayer | null = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
+    let cancelled = false;
+
+    const report = () => {
+      try {
+        const t = player?.getCurrentTime?.();
+        if (typeof t === "number" && t > 5) {
+          onProgressRef.current(
+            player?.getVideoData?.()?.video_id ?? null,
+            Math.floor(t)
+          );
+        }
+      } catch {
+        /* player gone */
+      }
+    };
+
+    loadYouTubeApi().then(() => {
+      const w = window as unknown as YTGlobal;
+      if (cancelled || !iframeRef.current || !w.YT) return;
+      player = new w.YT.Player(iframeRef.current, {
+        events: {
+          onStateChange: (e: { data: number }) => {
+            if (interval) clearInterval(interval);
+            interval = null;
+            if (e.data === 1) {
+              // playing
+              interval = setInterval(report, 15_000);
+            } else if (e.data === 2 || e.data === 0) {
+              // paused / ended
+              report();
+            }
+          },
+        },
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      if (interval) clearInterval(interval);
+      report();
+      try {
+        player?.destroy?.();
+      } catch {
+        /* already gone */
+      }
+    };
+  }, [enabled]);
+
+  return iframeRef;
+}
+
 // Copy the item's original link, flashing a check as feedback.
 function CopyLinkButton({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
@@ -95,7 +208,9 @@ export default function MediaPage() {
     }
     const { data } = await supabase
       .from("media_items")
-      .select("id,type,url,title,is_course,section_id")
+      .select(
+        "id,type,url,title,is_course,section_id,progress_seconds,progress_video_id"
+      )
       .order("created_at", { ascending: false });
     const rows = (data as Item[]) ?? [];
     setItems(rows);
@@ -284,6 +399,17 @@ export default function MediaPage() {
     );
     setVActive("all");
     await supabase.from("media_sections").delete().eq("id", section.id);
+  }
+
+  // Persist the resume position; state stays untouched so the playing iframe
+  // never reloads mid-watch (the fresh value is read on the next visit).
+  function saveProgress(item: Item, videoId: string | null, seconds: number) {
+    if (!supabase) return;
+    supabase
+      .from("media_items")
+      .update({ progress_seconds: seconds, progress_video_id: videoId })
+      .eq("id", item.id)
+      .then(undefined, () => {});
   }
 
   async function moveToSection(item: Item, sectionId: string | null) {
@@ -521,6 +647,7 @@ export default function MediaPage() {
                     onToggle={toggleLesson}
                     onRemove={removeItem}
                     onRename={renameItem}
+                    onProgress={saveProgress}
                   />
                 ))}
               </div>
@@ -610,6 +737,7 @@ export default function MediaPage() {
                       item={item}
                       onRemove={removeItem}
                       onRename={renameItem}
+                    onProgress={saveProgress}
                       sections={vSections}
                       onSection={moveToSection}
                     />
@@ -627,6 +755,7 @@ export default function MediaPage() {
                   item={item}
                   onRemove={removeItem}
                   onRename={renameItem}
+                    onProgress={saveProgress}
                   audio
                 />
               ))}
@@ -655,34 +784,49 @@ function CourseCard({
   onToggle,
   onRemove,
   onRename,
+  onProgress,
 }: {
   item: Item;
   lessons: Lesson[];
   onToggle: (id: string, watched: boolean) => void;
   onRemove: (id: string) => void;
   onRename: (item: Item) => void;
+  onProgress?: (item: Item, videoId: string | null, seconds: number) => void;
 }) {
   const listId = youtubePlaylistId(item.url);
   const watched = lessons.filter((l) => l.watched).length;
   const total = lessons.length;
   const pct = total ? Math.round((watched / total) * 100) : 0;
 
-  // Start on the first unwatched lesson, falling back to the first.
+  // Start on the last-played lesson, else the first unwatched, else the first.
   const initial =
-    lessons.find((l) => !l.watched)?.video_id ?? lessons[0]?.video_id ?? null;
+    (item.progress_video_id &&
+      lessons.find((l) => l.video_id === item.progress_video_id)?.video_id) ||
+    lessons.find((l) => !l.watched)?.video_id ||
+    lessons[0]?.video_id ||
+    null;
   const [active, setActive] = useState<string | null>(initial);
   const [open, setOpen] = useState(false);
   const videoId = active ?? initial;
 
-  const src =
+  const base =
     videoId && listId
       ? `https://www.youtube.com/embed/${videoId}?list=${listId}`
       : embedSrc(item);
+  // Resume position only applies to the lesson it was saved on.
+  const src = withResume(
+    base,
+    videoId === item.progress_video_id ? item.progress_seconds : 0
+  );
+  const iframeRef = useYouTubeProgress(!!onProgress, (vid, s) =>
+    onProgress?.(item, vid, s)
+  );
 
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-bg-elevated">
       <div className="aspect-video">
         <iframe
+          ref={iframeRef}
           src={src}
           title={item.title ?? "Course"}
           loading="lazy"
@@ -693,9 +837,16 @@ function CourseCard({
       </div>
 
       <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
-        <p className="min-w-0 flex-1 truncate text-sm font-medium">
-          {item.title || "Course"}
-        </p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">
+            {item.title || "Course"}
+          </p>
+          {item.progress_seconds > 30 && videoId === item.progress_video_id && (
+            <p className="text-[11px] text-text-faint">
+              Resume {formatTime(item.progress_seconds)}
+            </p>
+          )}
+        </div>
         <CopyLinkButton url={item.url} />
         <button
           onClick={() => onRename(item)}
@@ -794,6 +945,7 @@ function MediaCard({
   item,
   onRemove,
   onRename,
+  onProgress,
   sections,
   onSection,
   audio = false,
@@ -801,15 +953,25 @@ function MediaCard({
   item: Item;
   onRemove: (id: string) => void;
   onRename: (item: Item) => void;
+  onProgress?: (item: Item, videoId: string | null, seconds: number) => void;
   sections?: MediaSection[];
   onSection?: (item: Item, sectionId: string | null) => void;
   audio?: boolean;
 }) {
+  const isYt = item.type === "youtube" && !audio;
+  // Freeze the src at mount so background progress saves never reload it.
+  const [src] = useState(() =>
+    isYt ? withResume(embedSrc(item), item.progress_seconds) : embedSrc(item)
+  );
+  const iframeRef = useYouTubeProgress(isYt && !!onProgress, (vid, s) =>
+    onProgress?.(item, vid, s)
+  );
+
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-bg-elevated">
       {audio ? (
         <iframe
-          src={embedSrc(item)}
+          src={src}
           title={item.title ?? "Podcast"}
           loading="lazy"
           allow="autoplay; encrypted-media"
@@ -818,7 +980,8 @@ function MediaCard({
       ) : (
         <div className="aspect-video">
           <iframe
-            src={embedSrc(item)}
+            ref={iframeRef}
+            src={src}
             title={item.title ?? "Video"}
             loading="lazy"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -828,9 +991,16 @@ function MediaCard({
         </div>
       )}
       <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
-        <p className="min-w-0 flex-1 truncate text-sm font-medium">
-          {item.title || (audio ? "Podcast" : "Video")}
-        </p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">
+            {item.title || (audio ? "Podcast" : "Video")}
+          </p>
+          {isYt && item.progress_seconds > 30 && (
+            <p className="text-[11px] text-text-faint">
+              Resume {formatTime(item.progress_seconds)}
+            </p>
+          )}
+        </div>
         {sections && sections.length > 0 && onSection && (
           <select
             value={item.section_id ?? ""}

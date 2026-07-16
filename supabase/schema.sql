@@ -114,6 +114,8 @@ create table if not exists public.media_items (
   title text,
   is_course boolean not null default false, -- youtube playlist expanded into lessons
   section_id uuid references public.media_sections (id) on delete set null,
+  progress_seconds integer not null default 0, -- resume position (YouTube)
+  progress_video_id text, -- last-played lesson within a course
   created_at timestamptz not null default now()
 );
 
