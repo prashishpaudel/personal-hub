@@ -17,6 +17,7 @@ import {
   Maximize2,
   Minimize2,
   Globe,
+  GripVertical,
   BookOpen,
   Cpu,
   Lightbulb,
@@ -39,8 +40,30 @@ import {
   setCachedArticle,
 } from "@/lib/feedStore";
 import { listSaved, addSaved, removeSaved } from "@/lib/savedStore";
-import { listSites, addSite, removeSite, type Site } from "@/lib/siteStore";
+import {
+  listSites,
+  addSite,
+  removeSite,
+  updateSitePosition,
+  type Site,
+} from "@/lib/siteStore";
 import { useDialog } from "@/components/DialogProvider";
+import {
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 function timeAgo(date: string): string {
   const diff = Date.now() - new Date(date).getTime();
@@ -72,6 +95,69 @@ function Favicon({ domain }: { domain: string }) {
   );
 }
 
+// One drag-sortable row in the Sites library.
+function SiteRow({
+  site,
+  onDelete,
+}: {
+  site: Site;
+  onDelete: (site: Site) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: site.id });
+  const domain = new URL(site.url).hostname.replace(/^www\./, "");
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`group flex items-center gap-1.5 rounded-xl px-2 py-2.5 transition-colors hover:bg-bg-sunken ${
+        isDragging ? "z-10 bg-bg-elevated opacity-80 shadow-lg" : ""
+      }`}
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        aria-label="Drag"
+        className="sticky-ctl flex h-6 w-5 shrink-0 cursor-grab touch-none items-center justify-center rounded text-text-faint opacity-0 transition-opacity hover:text-text-muted group-hover:opacity-100 active:cursor-grabbing"
+      >
+        <GripVertical size={14} />
+      </button>
+      <a
+        href={site.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex min-w-0 flex-1 items-center gap-2.5"
+      >
+        <Favicon domain={domain} />
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-medium">{site.name}</span>
+          <span className="block truncate text-[11px] text-text-faint">
+            {domain}
+          </span>
+        </span>
+        <ExternalLink
+          size={13}
+          className="shrink-0 text-text-faint opacity-0 transition-opacity group-hover:opacity-100"
+        />
+      </a>
+      <button
+        onClick={() => onDelete(site)}
+        aria-label="Remove site"
+        className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-text-faint opacity-0 transition-opacity hover:text-accent-text group-hover:opacity-100"
+      >
+        <Trash2 size={14} />
+      </button>
+    </div>
+  );
+}
+
 const categoryIcons: Record<string, LucideIcon> = {
   Tech: Cpu,
   World: Globe,
@@ -89,6 +175,10 @@ function CategoryIcon({ category }: { category: string }) {
 
 export default function FeedPage() {
   const { confirm } = useDialog();
+  const siteSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 6 } })
+  );
   const [items, setItems] = useState<FeedItem[]>([]);
   const [status, setStatus] = useState<"loading" | "idle" | "error">("loading");
   const [refreshing, setRefreshing] = useState(false);
@@ -299,13 +389,35 @@ export default function FeedPage() {
     }
     setSiteError(null);
     try {
-      const site = await addSite(siteName.trim() || host, url);
+      const top = sites.length
+        ? Math.min(...sites.map((s) => s.position)) - 1
+        : 0;
+      const site = await addSite(siteName.trim() || host, url, top);
       setSites((cur) => [site, ...cur]);
       setSiteUrl("");
       setSiteName("");
     } catch (err) {
       setSiteError(err instanceof Error ? err.message : "Couldn't save site.");
     }
+  }
+
+  function onSiteDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const from = sites.findIndex((s) => s.id === active.id);
+    const to = sites.findIndex((s) => s.id === over.id);
+    if (from < 0 || to < 0) return;
+    const next = arrayMove(sites, from, to);
+    const prev = next[to - 1]?.position;
+    const after = next[to + 1]?.position;
+    let position: number;
+    if (prev === undefined && after === undefined) position = 0;
+    else if (prev === undefined) position = after! - 1;
+    else if (after === undefined) position = prev + 1;
+    else position = (prev + after) / 2;
+    next[to] = { ...next[to], position };
+    setSites(next);
+    updateSitePosition(String(active.id), position).catch(() => {});
   }
 
   async function deleteSite(site: Site) {
@@ -687,43 +799,20 @@ export default function FeedPage() {
                 No sites yet — save one above.
               </p>
             ) : (
-              sites.map((site) => {
-                const domain = new URL(site.url).hostname.replace(/^www\./, "");
-                return (
-                  <div
-                    key={site.id}
-                    className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-bg-sunken"
-                  >
-                    <a
-                      href={site.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex min-w-0 flex-1 items-center gap-2.5"
-                    >
-                      <Favicon domain={domain} />
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-medium">
-                          {site.name}
-                        </span>
-                        <span className="block truncate text-[11px] text-text-faint">
-                          {domain}
-                        </span>
-                      </span>
-                      <ExternalLink
-                        size={13}
-                        className="shrink-0 text-text-faint opacity-0 transition-opacity group-hover:opacity-100"
-                      />
-                    </a>
-                    <button
-                      onClick={() => deleteSite(site)}
-                      aria-label="Remove site"
-                      className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-text-faint opacity-0 transition-opacity hover:text-accent-text group-hover:opacity-100"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                );
-              })
+              <DndContext
+                sensors={siteSensors}
+                collisionDetection={closestCenter}
+                onDragEnd={onSiteDragEnd}
+              >
+                <SortableContext
+                  items={sites.map((s) => s.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {sites.map((site) => (
+                    <SiteRow key={site.id} site={site} onDelete={deleteSite} />
+                  ))}
+                </SortableContext>
+              </DndContext>
             )
           ) : status === "loading" ? (
             <div className="flex items-center justify-center gap-2 py-10 text-sm text-text-muted">

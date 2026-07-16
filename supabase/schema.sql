@@ -278,6 +278,7 @@ create table if not exists public.site_bookmarks (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   name text not null default '',
   url text not null,
+  position double precision not null default 0,
   created_at timestamptz not null default now(),
   unique (user_id, url)
 );
@@ -295,6 +296,12 @@ create policy "Owner can read site bookmarks"
 drop policy if exists "Owner can insert site bookmarks" on public.site_bookmarks;
 create policy "Owner can insert site bookmarks"
   on public.site_bookmarks for insert to authenticated
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Owner can update site bookmarks" on public.site_bookmarks;
+create policy "Owner can update site bookmarks"
+  on public.site_bookmarks for update to authenticated
+  using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
 drop policy if exists "Owner can delete site bookmarks" on public.site_bookmarks;
