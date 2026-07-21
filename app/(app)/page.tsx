@@ -5,6 +5,9 @@ import { getAllNotes } from "@/lib/garden";
 import RecentNotes from "@/components/widgets/RecentNotes";
 import FeedHighlights from "@/components/widgets/FeedHighlights";
 import GardenHighlights from "@/components/widgets/GardenHighlights";
+import CourseProgress from "@/components/widgets/CourseProgress";
+import RecentStickies from "@/components/widgets/RecentStickies";
+import QuickLinks from "@/components/widgets/QuickLinks";
 
 function greeting() {
   const h = new Date().getHours();
@@ -36,6 +39,8 @@ export default function Home() {
           media. Pick up where you left off.
         </p>
       </header>
+
+      <QuickLinks />
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {sectionItems.map((item) => {
@@ -70,9 +75,11 @@ export default function Home() {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-text-faint">
           Recent activity
         </h2>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
           <RecentNotes />
           <FeedHighlights />
+          <CourseProgress />
+          <RecentStickies />
         </div>
         <GardenHighlights notes={gardenNotes} />
       </section>
