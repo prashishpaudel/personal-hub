@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { X, Trash2, Plus, DownloadCloud, Loader2 } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { sources as defaultSources, categories } from "@/lib/sources";
+import { useDialog } from "@/components/DialogProvider";
 
 type Source = {
   id: string;
@@ -19,6 +20,7 @@ export default function ManageSources({
   onClose: () => void;
   onChange: () => void;
 }) {
+  const { confirm } = useDialog();
   const [rows, setRows] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
@@ -63,10 +65,17 @@ export default function ManageSources({
     onChange();
   }
 
-  async function removeSource(id: string) {
+  async function removeSource(source: Source) {
     if (!supabase) return;
-    setRows((cur) => cur.filter((s) => s.id !== id));
-    await supabase.from("rss_sources").delete().eq("id", id);
+    const ok = await confirm({
+      title: "Remove source",
+      message: `Remove "${source.name}" from your feeds?`,
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (!ok) return;
+    setRows((cur) => cur.filter((s) => s.id !== source.id));
+    await supabase.from("rss_sources").delete().eq("id", source.id);
     onChange();
   }
 
@@ -211,7 +220,7 @@ export default function ManageSources({
                     {s.category}
                   </span>
                   <button
-                    onClick={() => removeSource(s.id)}
+                    onClick={() => removeSource(s)}
                     aria-label={`Remove ${s.name}`}
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-text-muted hover:text-accent-text"
                   >
