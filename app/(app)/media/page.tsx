@@ -11,6 +11,7 @@ import {
   Play,
   Check,
   ChevronDown,
+  RefreshCw,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import {
@@ -31,6 +32,7 @@ import {
   listLessons,
   setLessonWatched,
   expandPlaylist,
+  syncPlaylist,
   type Lesson,
 } from "@/lib/courseStore";
 import { useDialog } from "@/components/DialogProvider";
@@ -410,6 +412,15 @@ export default function MediaPage() {
     await supabase.from("media_sections").delete().eq("id", section.id);
   }
 
+  // Pull new playlist videos into a course's lessons (watched state kept).
+  async function refreshCourse(item: Item) {
+    const listId = youtubePlaylistId(item.url);
+    if (!listId) return;
+    await syncPlaylist(item.id, listId);
+    const courseIds = items.filter((r) => r.is_course).map((r) => r.id);
+    setLessons(await listLessons(courseIds));
+  }
+
   // Persist the resume position; state stays untouched so the playing iframe
   // never reloads mid-watch (the fresh value is read on the next visit).
   function saveProgress(item: Item, videoId: string | null, seconds: number) {
@@ -690,6 +701,7 @@ export default function MediaPage() {
                       onProgress={saveProgress}
                       sections={courseSections}
                       onSection={moveToSection}
+                      onRefresh={refreshCourse}
                     />
                   ))}
                 </div>
@@ -874,6 +886,7 @@ function CourseCard({
   onProgress,
   sections,
   onSection,
+  onRefresh,
 }: {
   item: Item;
   lessons: Lesson[];
@@ -883,7 +896,9 @@ function CourseCard({
   onProgress?: (item: Item, videoId: string | null, seconds: number) => void;
   sections?: MediaSection[];
   onSection?: (item: Item, sectionId: string | null) => void;
+  onRefresh?: (item: Item) => Promise<void>;
 }) {
+  const [syncing, setSyncing] = useState(false);
   const sectionPicker = sections && sections.length > 0 && onSection && (
     <select
       value={item.section_id ?? ""}
@@ -954,6 +969,20 @@ function CourseCard({
           )}
         </div>
         {sectionPicker}
+        {onRefresh && (
+          <button
+            onClick={() => {
+              setSyncing(true);
+              onRefresh(item).finally(() => setSyncing(false));
+            }}
+            disabled={syncing}
+            aria-label="Sync playlist"
+            title="Pull new playlist videos"
+            className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-sunken hover:text-text disabled:opacity-50"
+          >
+            <RefreshCw size={14} className={syncing ? "animate-spin" : ""} />
+          </button>
+        )}
         <CopyLinkButton url={item.url} />
         <button
           onClick={() => onRename(item)}

@@ -58,3 +58,29 @@ export async function expandPlaylist(
   const { error } = await supabase.from("media_lessons").insert(rows);
   if (error) throw new Error(error.message);
 }
+
+// Re-fetch the playlist and merge: new videos are added, titles/positions of
+// existing lessons refresh, watched state is preserved, nothing is removed.
+export async function syncPlaylist(
+  mediaId: string,
+  listId: string
+): Promise<void> {
+  const res = await fetch(
+    `/api/youtube/playlist?list=${encodeURIComponent(listId)}`
+  );
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || "Failed to load playlist");
+  const rows = (
+    json.lessons as { videoId: string; title: string; position: number }[]
+  ).map((l) => ({
+    media_id: mediaId,
+    video_id: l.videoId,
+    title: l.title,
+    position: l.position,
+  }));
+  if (!supabase || rows.length === 0) return;
+  const { error } = await supabase
+    .from("media_lessons")
+    .upsert(rows, { onConflict: "media_id,video_id" });
+  if (error) throw new Error(error.message);
+}
