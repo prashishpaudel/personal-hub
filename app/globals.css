@@ -55,6 +55,13 @@
   * {
     border-color: var(--border);
   }
+
+  /* Tailwind v4 makes buttons cursor: default; restore pointer app-wide so
+     every clickable control behaves the same (disabled ones stay default). */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
 }
 
 html {

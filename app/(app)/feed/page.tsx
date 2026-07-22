@@ -150,7 +150,7 @@ function SiteRow({
       <button
         onClick={() => onDelete(site)}
         aria-label="Remove site"
-        className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-text-faint opacity-0 transition-opacity hover:text-accent-text group-hover:opacity-100"
+        className="sticky-ctl flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-text-faint opacity-0 transition-opacity hover:text-accent-text group-hover:opacity-100"
       >
         <Trash2 size={14} />
       </button>
