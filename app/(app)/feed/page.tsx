@@ -691,7 +691,9 @@ export default function FeedPage() {
                               >
                                 <Pin
                                   size={12}
-                                  className={pinned ? "fill-current" : ""}
+                                  className={
+                                    pinned ? "rotate-45 fill-current" : ""
+                                  }
                                 />
                               </button>
                             )}

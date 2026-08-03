@@ -219,7 +219,7 @@ function StickyCard({
               : "text-text-faint opacity-0 hover:text-text-muted"
           }`}
         >
-          <Pin size={14} className={sticky.pinned ? "fill-current" : ""} />
+          <Pin size={14} className={sticky.pinned ? "rotate-45 fill-current" : ""} />
         </button>
         <button
           onClick={() => onDelete(sticky)}
@@ -494,7 +494,7 @@ function StickyModal({
               sticky.pinned ? "text-accent-text" : "text-text-muted"
             }`}
           >
-            <Pin size={16} className={sticky.pinned ? "fill-current" : ""} />
+            <Pin size={16} className={sticky.pinned ? "rotate-45 fill-current" : ""} />
           </button>
           <button
             onClick={() => onDelete(sticky)}
@@ -937,7 +937,7 @@ export default function StickiesPage() {
                   {section.pinned && (
                     <Pin
                       size={11}
-                      className={`fill-current ${
+                      className={`rotate-45 fill-current ${
                         isActive ? "text-white/80" : "text-text-faint"
                       }`}
                     />
@@ -960,7 +960,7 @@ export default function StickiesPage() {
                     >
                       <Pin
                         size={13}
-                        className={section.pinned ? "fill-current" : ""}
+                        className={section.pinned ? "rotate-45 fill-current" : ""}
                       />
                     </button>
                     <button
