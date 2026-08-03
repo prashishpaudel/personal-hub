@@ -18,6 +18,7 @@ import {
   Minimize2,
   Globe,
   GripVertical,
+  Pin,
   BookOpen,
   Cpu,
   Lightbulb,
@@ -39,6 +40,7 @@ import {
   getCachedArticle,
   setCachedArticle,
 } from "@/lib/feedStore";
+import { supabase } from "@/lib/supabase";
 import { listSaved, addSaved, removeSaved } from "@/lib/savedStore";
 import {
   listSites,
@@ -193,6 +195,10 @@ export default function FeedPage() {
   const [manageOpen, setManageOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [savedItems, setSavedItems] = useState<FeedItem[]>([]);
+  // Source name -> rss_sources row (id + pinned flag) for the sidebar.
+  const [srcMeta, setSrcMeta] = useState<
+    Map<string, { id: string; pinned: boolean }>
+  >(new Map());
   const [sites, setSites] = useState<Site[]>([]);
   const [siteUrl, setSiteUrl] = useState("");
   const [siteName, setSiteName] = useState("");
@@ -255,6 +261,7 @@ export default function FeedPage() {
       .catch(() => {
         /* sites unavailable — feed still works */
       });
+    loadSrcMeta();
     const ui = getFeedUI();
     setFilter(ui.filter);
     setSource(ui.source);
@@ -324,6 +331,39 @@ export default function FeedPage() {
       setFetchingArticle(false);
     }
   }, [selected, fetchedContent]);
+
+  async function loadSrcMeta() {
+    if (!supabase) return;
+    const { data } = await supabase
+      .from("rss_sources")
+      .select("id,name,pinned");
+    if (!data) return;
+    setSrcMeta(
+      new Map(
+        (data as { id: string; name: string; pinned: boolean }[]).map((r) => [
+          r.name,
+          { id: r.id, pinned: r.pinned },
+        ])
+      )
+    );
+  }
+
+  function togglePinSource(name: string) {
+    if (!supabase) return;
+    const meta = srcMeta.get(name);
+    if (!meta) return;
+    const pinned = !meta.pinned;
+    setSrcMeta((cur) => {
+      const next = new Map(cur);
+      next.set(name, { ...meta, pinned });
+      return next;
+    });
+    supabase
+      .from("rss_sources")
+      .update({ pinned })
+      .eq("id", meta.id)
+      .then(undefined, () => {});
+  }
 
   function pickCategory(cat: string) {
     closeReader();
@@ -482,8 +522,7 @@ export default function FeedPage() {
   }
 
   // Sources grouped under their category for the accordion sidebar.
-  // Within a category, sources are ordered by their freshest article so the
-  // most recently active feed sits on top.
+  // Within a category: pinned sources first, then by freshest article.
   const sourceGroups = useMemo(() => {
     const byCat = new Map<
       string,
@@ -497,15 +536,20 @@ export default function FeedPage() {
       if (!existing) m.set(i.source, { domain: i.sourceDomain, latest: t });
       else if (t > existing.latest) existing.latest = t;
     }
+    const isPinned = (name: string) => srcMeta.get(name)?.pinned ?? false;
     return [...byCat.entries()]
       .map(([category, m]) => ({
         category,
         sources: [...m.entries()]
-          .sort((a, b) => b[1].latest - a[1].latest)
+          .sort(
+            (a, b) =>
+              Number(isPinned(b[0])) - Number(isPinned(a[0])) ||
+              b[1].latest - a[1].latest
+          )
           .map(([name, v]) => [name, v.domain] as [string, string]),
       }))
       .sort((a, b) => a.category.localeCompare(b.category));
-  }, [items]);
+  }, [items, srcMeta]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -617,20 +661,43 @@ export default function FeedPage() {
 
                   {open && (
                     <div className="ml-3 mt-0.5 space-y-0.5 border-l border-border pl-2">
-                      {sources.map(([name, domain]) => (
-                        <button
-                          key={name}
-                          onClick={() => pickSource(name)}
-                          className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[13px] transition-colors ${
-                            source === name
-                              ? "bg-accent-soft text-accent-text"
-                              : "text-text-muted hover:bg-bg-sunken hover:text-text"
-                          }`}
-                        >
-                          <Favicon domain={domain} />
-                          <span className="truncate">{name}</span>
-                        </button>
-                      ))}
+                      {sources.map(([name, domain]) => {
+                        const pinned = srcMeta.get(name)?.pinned ?? false;
+                        return (
+                          <div
+                            key={name}
+                            className={`group/src flex w-full items-center rounded-lg transition-colors ${
+                              source === name
+                                ? "bg-accent-soft text-accent-text"
+                                : "text-text-muted hover:bg-bg-sunken hover:text-text"
+                            }`}
+                          >
+                            <button
+                              onClick={() => pickSource(name)}
+                              className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1 text-left text-[13px]"
+                            >
+                              <Favicon domain={domain} />
+                              <span className="truncate">{name}</span>
+                            </button>
+                            {srcMeta.has(name) && (
+                              <button
+                                onClick={() => togglePinSource(name)}
+                                aria-label={pinned ? "Unpin source" : "Pin source"}
+                                className={`sticky-ctl flex h-6 w-6 shrink-0 items-center justify-center rounded transition-opacity ${
+                                  pinned
+                                    ? "text-accent-text opacity-100"
+                                    : "text-text-faint opacity-0 hover:text-text-muted group-hover/src:opacity-100"
+                                }`}
+                              >
+                                <Pin
+                                  size={12}
+                                  className={pinned ? "fill-current" : ""}
+                                />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

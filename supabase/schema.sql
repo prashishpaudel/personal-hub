@@ -45,6 +45,7 @@ create table if not exists public.rss_sources (
   name text not null,
   url text not null,
   category text not null default 'Tech',
+  pinned boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -60,6 +61,12 @@ create policy "Owner can read sources"
 drop policy if exists "Owner can insert sources" on public.rss_sources;
 create policy "Owner can insert sources"
   on public.rss_sources for insert to authenticated
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Owner can update sources" on public.rss_sources;
+create policy "Owner can update sources"
+  on public.rss_sources for update to authenticated
+  using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
 drop policy if exists "Owner can delete sources" on public.rss_sources;
