@@ -141,8 +141,19 @@ function useYouTubeProgress(
       });
     });
 
+    // Mobile rarely unmounts — the app gets backgrounded (app switch, screen
+    // lock, PWA swipe-away) and timers freeze. visibilitychange/pagehide are
+    // the reliable last-chance moments to save there.
+    const onHidden = () => {
+      if (document.visibilityState === "hidden") report();
+    };
+    document.addEventListener("visibilitychange", onHidden);
+    window.addEventListener("pagehide", report);
+
     return () => {
       cancelled = true;
+      document.removeEventListener("visibilitychange", onHidden);
+      window.removeEventListener("pagehide", report);
       if (interval) clearInterval(interval);
       report();
       try {
@@ -421,10 +432,21 @@ export default function MediaPage() {
     setLessons(await listLessons(courseIds));
   }
 
-  // Persist the resume position; state stays untouched so the playing iframe
-  // never reloads mid-watch (the fresh value is read on the next visit).
+  // Persist the resume position. State and cache are updated too so a
+  // navigation back to /media (which renders from cache) resumes correctly —
+  // safe because each card freezes its iframe src at mount, so this never
+  // reloads a playing video.
   function saveProgress(item: Item, videoId: string | null, seconds: number) {
     if (!supabase) return;
+    setItems((cur) => {
+      const next = cur.map((i) =>
+        i.id === item.id
+          ? { ...i, progress_seconds: seconds, progress_video_id: videoId }
+          : i
+      );
+      setMediaCache(next);
+      return next;
+    });
     supabase
       .from("media_items")
       .update({ progress_seconds: seconds, progress_video_id: videoId })
