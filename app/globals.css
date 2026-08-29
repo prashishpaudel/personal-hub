@@ -153,7 +153,14 @@ body {
   margin: 0 0 1.1em;
   padding-left: 1.4em;
 }
-.prose-reader li { margin: 0.3em 0; }
+/* Tailwind preflight strips list markers; restore them for reader content */
+.prose-reader ul { list-style: disc; }
+.prose-reader ol { list-style: decimal; }
+.prose-reader ul ul { list-style: circle; }
+.prose-reader ol ol { list-style: lower-alpha; }
+.prose-reader li { margin: 0.15em 0; }
+/* Tiptap wraps li content in <p>; kill its paragraph margin inside lists */
+.prose-reader li p { margin: 0; }
 .prose-reader hr {
   border: none;
   border-top: 1px solid var(--border);
