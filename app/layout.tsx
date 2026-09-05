@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Fraunces } from "next/font/google";
 import "./globals.css";
 
@@ -17,6 +17,23 @@ const display = Fraunces({
 export const metadata: Metadata = {
   title: "Personal Hub",
   description: "One space for notes, garden, feeds, and media.",
+  // iOS only opens an installed app chrome-free when it sees this; it also
+  // supplies the name shown under the home-screen icon.
+  appleWebApp: {
+    capable: true,
+    title: "Hub",
+    statusBarStyle: "default",
+  },
+};
+
+// The manifest carries a single theme_color, which left dark-mode users with a
+// cream status bar. The meta tag takes a media query, so the installed app's
+// chrome can follow the palette.
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f7f4ef" },
+    { media: "(prefers-color-scheme: dark)", color: "#1a1814" },
+  ],
 };
 
 // Set theme before paint to avoid a flash of the wrong palette.

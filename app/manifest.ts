@@ -8,7 +8,11 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Hub",
     description:
       "One space for everything — notes, garden, feeds, media, and links.",
+    // id pins the app's identity: without it the identity is derived from
+    // start_url, so changing start_url later would register as a new install.
+    id: "/",
     start_url: "/",
+    scope: "/",
     display: "standalone",
     background_color: "#f7f4ef",
     theme_color: "#f7f4ef",
