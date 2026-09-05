@@ -87,7 +87,7 @@ export default function AppShell({
           href="/"
           className={`mb-6 flex items-center gap-2.5 ${collapsed ? "" : "px-2.5"}`}
         >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent text-white">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-fg">
             <svg
               width="20"
               height="20"

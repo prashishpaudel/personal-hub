@@ -811,7 +811,7 @@ export default function FeedPage() {
                 <button
                   type="submit"
                   disabled={addingLink}
-                  className="shrink-0 rounded-lg bg-accent px-2.5 py-1 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                  className="shrink-0 rounded-lg bg-accent px-2.5 py-1 text-xs font-medium text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-60"
                 >
                   {addingLink ? (
                     <Loader2 size={13} className="animate-spin" />
@@ -849,7 +849,7 @@ export default function FeedPage() {
               {siteUrl.trim() && (
                 <button
                   type="submit"
-                  className="shrink-0 cursor-pointer rounded-lg bg-accent px-2.5 py-1 text-xs font-medium text-white transition-opacity hover:opacity-90"
+                  className="shrink-0 cursor-pointer rounded-lg bg-accent px-2.5 py-1 text-xs font-medium text-accent-fg transition-opacity hover:opacity-90"
                 >
                   Save
                 </button>
@@ -1074,7 +1074,7 @@ export default function FeedPage() {
                         href={selected.link}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white"
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-accent-fg"
                       >
                         Read original <ExternalLink size={15} />
                       </a>

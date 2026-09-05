@@ -170,7 +170,7 @@ export default function BlogPage() {
         <button
           onClick={newPost}
           disabled={creating}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-accent px-3.5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+          className="inline-flex items-center gap-1.5 rounded-xl bg-accent px-3.5 py-2 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-60"
         >
           {creating ? (
             <Loader2 size={15} className="animate-spin" />
@@ -190,7 +190,7 @@ export default function BlogPage() {
               onClick={() => setTab(t.key)}
               className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors ${
                 active
-                  ? "bg-accent text-white shadow-sm"
+                  ? "bg-accent text-accent-fg shadow-sm"
                   : "text-text-muted hover:bg-bg-sunken hover:text-text"
               }`}
             >
@@ -198,7 +198,7 @@ export default function BlogPage() {
               {t.count > 0 && (
                 <span
                   className={`text-xs tabular-nums ${
-                    active ? "text-white/70" : "text-text-faint"
+                    active ? "text-accent-fg/70" : "text-text-faint"
                   }`}
                 >
                   {t.count}
@@ -235,7 +235,7 @@ export default function BlogPage() {
               </span>
               <button
                 onClick={() => restorePost(post.id)}
-                className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-accent-text hover:bg-accent-soft"
+                className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-accent-text hover:bg-accent-soft hover:underline"
               >
                 <RotateCcw size={13} /> Restore
               </button>
@@ -281,7 +281,7 @@ export default function BlogPage() {
                     </span>
                   )}
                 </div>
-                <h2 className="font-display text-xl font-semibold tracking-tight transition-colors group-hover:text-accent-text">
+                <h2 className="font-display text-xl font-semibold tracking-tight transition-colors group-hover:underline">
                   {post.title || "Untitled"}
                 </h2>
                 {preview && (

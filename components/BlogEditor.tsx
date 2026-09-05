@@ -351,7 +351,7 @@ export default function BlogEditor({ post }: { post: Post }) {
           <button
             type="button"
             onClick={togglePublish}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-accent px-3.5 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-accent px-3.5 py-1.5 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90"
           >
             {status === "published" ? (
               <>

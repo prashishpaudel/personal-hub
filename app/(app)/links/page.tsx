@@ -334,7 +334,7 @@ export default function LinksPage() {
             <button
               type="submit"
               disabled={adding}
-              className="cursor-pointer rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+              className="cursor-pointer rounded-xl bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-60"
             >
               {adding ? (
                 <Loader2 size={15} className="animate-spin" />

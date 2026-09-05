@@ -153,8 +153,8 @@ export default function DialogProvider({
               </button>
               <button
                 onClick={accept}
-                className={`rounded-lg px-3.5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 ${
-                  danger ? "bg-red-500" : "bg-accent"
+                className={`rounded-lg px-3.5 py-2 text-sm font-medium transition-opacity hover:opacity-90 ${
+                  danger ? "bg-red-500 text-white" : "bg-accent text-accent-fg"
                 }`}
               >
                 {(opts && opts.confirmLabel) || (isPrompt ? "Save" : "Confirm")}

@@ -1,7 +1,9 @@
 @import "tailwindcss";
 
 /*
-  Design tokens — warm neutral "hearth" palette with an ember accent.
+  Design tokens — warm neutral "hearth" palette, monochrome.
+  The accent is ink-on-cream in light and cream-on-ink in dark, so it
+  inverts per theme; --accent-fg is the readable text color on top of it.
   Light + dark resolved via [data-theme] on <html>.
 */
 :root,
@@ -14,9 +16,10 @@
   --text: #2a2722;
   --text-muted: #6b6457;
   --text-faint: #9a9486;
-  --accent: #c2410c;
-  --accent-soft: #f4e3d7;
-  --accent-text: #9a3412;
+  --accent: #2a2722;
+  --accent-fg: #fffdf9;
+  --accent-soft: #e9e4da;
+  --accent-text: #2a2722;
 }
 
 [data-theme="dark"] {
@@ -28,9 +31,10 @@
   --text: #ece6da;
   --text-muted: #a59c8c;
   --text-faint: #6f6757;
-  --accent: #ea7a4d;
-  --accent-soft: #2e211a;
-  --accent-text: #f0a079;
+  --accent: #ece6da;
+  --accent-fg: #1a1814;
+  --accent-soft: #2b2721;
+  --accent-text: #ece6da;
 }
 
 @theme inline {
@@ -43,6 +47,7 @@
   --color-text-muted: var(--text-muted);
   --color-text-faint: var(--text-faint);
   --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
   --color-accent-soft: var(--accent-soft);
   --color-accent-text: var(--accent-text);
   --font-sans: var(--font-sans);

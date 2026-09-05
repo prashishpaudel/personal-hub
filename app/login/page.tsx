@@ -49,7 +49,7 @@ export default function LoginPage() {
     <main className="flex min-h-dvh items-center justify-center px-5">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent text-lg font-semibold text-white">
+          <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent text-lg font-semibold text-accent-fg">
             ph
           </span>
           <h1 className="font-display text-2xl font-semibold tracking-tight">
@@ -90,7 +90,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={status === "sending"}
-              className="flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+              className="flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-60"
             >
               {status === "sending" && (
                 <Loader2 size={16} className="animate-spin" />
@@ -99,7 +99,7 @@ export default function LoginPage() {
             </button>
 
             {(status === "error" || initialError) && (
-              <p className="text-center text-sm text-accent-text">
+              <p className="text-center text-sm text-red-400">
                 {message ||
                   (initialError === "unauthorized"
                     ? "That account isn't allowed here."

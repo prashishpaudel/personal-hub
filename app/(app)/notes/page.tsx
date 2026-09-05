@@ -246,7 +246,7 @@ export default function NotesPage() {
           <button
             onClick={addNote}
             aria-label="New note"
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent text-white transition-opacity hover:opacity-90"
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent text-accent-fg transition-opacity hover:opacity-90"
           >
             <Plus size={18} />
           </button>
@@ -390,7 +390,7 @@ export default function NotesPage() {
             <p className="text-sm">Select or create a note</p>
             <button
               onClick={addNote}
-              className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white"
+              className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-accent-fg"
             >
               New note
             </button>

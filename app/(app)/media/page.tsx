@@ -599,13 +599,13 @@ export default function MediaPage() {
         <button
           type="submit"
           disabled={busy || !url.trim()}
-          className="flex items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="flex items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-fg disabled:opacity-50"
         >
           {busy ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
           Add
         </button>
       </form>
-      {error && <p className="-mt-6 text-xs text-accent-text">{error}</p>}
+      {error && <p className="-mt-6 text-xs text-red-400">{error}</p>}
 
       {!loading &&
         items.length > 0 &&
@@ -665,7 +665,7 @@ export default function MediaPage() {
                   }}
                   className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors ${
                     active
-                      ? "bg-accent text-white shadow-sm"
+                      ? "bg-accent text-accent-fg shadow-sm"
                       : "text-text-muted hover:bg-bg-sunken hover:text-text"
                   }`}
                 >
@@ -673,7 +673,7 @@ export default function MediaPage() {
                   {t.count > 0 && (
                     <span
                       className={`text-xs tabular-nums ${
-                        active ? "text-white/70" : "text-text-faint"
+                        active ? "text-accent-fg/70" : "text-text-faint"
                       }`}
                     >
                       {t.count}
@@ -826,7 +826,7 @@ function SectionTabs({
         onClick={() => onPick("all")}
         className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
           active === "all"
-            ? "bg-accent text-white shadow-sm"
+            ? "bg-accent text-accent-fg shadow-sm"
             : "border border-border text-text-muted hover:bg-bg-sunken hover:text-text"
         }`}
       >
@@ -843,7 +843,7 @@ function SectionTabs({
               }
               className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                 isActive
-                  ? "bg-accent text-white shadow-sm"
+                  ? "bg-accent text-accent-fg shadow-sm"
                   : "border border-border text-text-muted hover:bg-bg-sunken hover:text-text"
               }`}
             >
@@ -851,7 +851,7 @@ function SectionTabs({
               {count > 0 && (
                 <span
                   className={`text-xs tabular-nums ${
-                    isActive ? "text-white/70" : "text-text-faint"
+                    isActive ? "text-accent-fg/70" : "text-text-faint"
                   }`}
                 >
                   {count}
@@ -1067,7 +1067,7 @@ function CourseCard({
                     aria-label={l.watched ? "Mark unwatched" : "Mark watched"}
                     className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors ${
                       l.watched
-                        ? "border-accent bg-accent text-white"
+                        ? "border-accent bg-accent text-accent-fg"
                         : "border-border-strong text-transparent hover:border-accent"
                     }`}
                   >

@@ -356,7 +356,7 @@ function ModalItemRow({
         aria-label={item.done ? "Uncheck" : "Check"}
         className={`mt-[3px] flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded border-2 transition-colors ${
           item.done
-            ? "border-accent bg-accent text-white"
+            ? "border-accent bg-accent text-accent-fg"
             : "border-text hover:border-accent"
         }`}
       >
@@ -879,7 +879,7 @@ export default function StickiesPage() {
           onClick={() => setActive("trash")}
           className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium transition-colors ${
             active === "trash"
-              ? "bg-accent text-white shadow-sm"
+              ? "bg-accent text-accent-fg shadow-sm"
               : "border border-border text-text-muted hover:bg-bg-sunken hover:text-text"
           }`}
         >
@@ -888,7 +888,7 @@ export default function StickiesPage() {
           {trash.length > 0 && (
             <span
               className={`text-xs tabular-nums ${
-                active === "trash" ? "text-white/70" : "text-text-faint"
+                active === "trash" ? "text-accent-fg/70" : "text-text-faint"
               }`}
             >
               {trash.length}
@@ -903,7 +903,7 @@ export default function StickiesPage() {
             onClick={() => setActive("all")}
             className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
               active === "all"
-                ? "bg-accent text-white shadow-sm"
+                ? "bg-accent text-accent-fg shadow-sm"
                 : "border border-border text-text-muted hover:bg-bg-sunken hover:text-text"
             }`}
           >
@@ -930,7 +930,7 @@ export default function StickiesPage() {
                   }}
                   className={`flex cursor-pointer items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                     isActive
-                      ? "bg-accent text-white shadow-sm"
+                      ? "bg-accent text-accent-fg shadow-sm"
                       : "border border-border text-text-muted hover:bg-bg-sunken hover:text-text"
                   }`}
                 >
@@ -938,7 +938,7 @@ export default function StickiesPage() {
                     <Pin
                       size={11}
                       className={`rotate-45 fill-current ${
-                        isActive ? "text-white/80" : "text-text-faint"
+                        isActive ? "text-accent-fg/80" : "text-text-faint"
                       }`}
                     />
                   )}
@@ -999,7 +999,7 @@ export default function StickiesPage() {
             <button
               onClick={() => setMenuOpen((v) => !v)}
               disabled={creating}
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-60"
             >
               {creating ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -1065,7 +1065,7 @@ export default function StickiesPage() {
                 <div className="mt-1 flex items-center gap-1 border-t border-border pt-1.5">
                   <button
                     onClick={() => restore(sticky)}
-                    className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-accent-text hover:bg-accent-soft"
+                    className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-accent-text hover:bg-accent-soft hover:underline"
                   >
                     <Undo2 size={13} /> Restore
                   </button>
@@ -1181,7 +1181,7 @@ export default function StickiesPage() {
           onClick={() => setFabOpen((v) => !v)}
           disabled={creating}
           aria-label="New sticky"
-          className="flex h-13 w-13 cursor-pointer items-center justify-center rounded-full bg-accent text-white shadow-lg transition-opacity hover:opacity-90 disabled:opacity-60"
+          className="flex h-13 w-13 cursor-pointer items-center justify-center rounded-full bg-accent text-accent-fg shadow-lg transition-opacity hover:opacity-90 disabled:opacity-60"
         >
           {creating ? (
             <Loader2 size={22} className="animate-spin" />
