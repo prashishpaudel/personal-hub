@@ -6,6 +6,13 @@ tags: [claude, tools]
 
 # Claude Code Tips
 
+## Important Plugins
+
+1. **Superpowers** — brainstorming and dispatching parallel agents
+2. **Context7** — MCP Server for up-to-date documentation lookup
+3. **mattpocock/skills** — grilling a plan, specs and tickets, TDD, code review
+4. **Caveman** — ultra-compressed replies, ~75% fewer output tokens (see below)
+
 ## Session Management
 
 - `claude --continue` (`-c`) — jump straight back into the most recent session in this folder
@@ -125,13 +132,6 @@ Example — format every file Claude writes:
   }
 }
 ```
-
-## Important Plugins
-
-1. **Superpowers** — brainstorming and dispatching parallel agents
-2. **Context7** — MCP Server for up-to-date documentation lookup
-3. **mattpocock/skills** — grilling a plan, specs and tickets, TDD, code review
-4. **Caveman** — ultra-compressed replies, ~75% fewer output tokens (see below)
 
 ## Installing Skills: Plugin vs Copy
 
