@@ -12,6 +12,7 @@ import {
   Check,
   ChevronDown,
   RefreshCw,
+  Pin,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import {
@@ -232,7 +233,8 @@ export default function MediaPage() {
     setLoading(false);
     const { data: secs } = await supabase
       .from("media_sections")
-      .select("id,name,kind")
+      .select("id,name,kind,pinned")
+      .order("pinned", { ascending: false })
       .order("name", { ascending: true });
     setVSections((secs as MediaSection[]) ?? []);
     const courseIds = rows.filter((r) => r.is_course).map((r) => r.id);
@@ -362,6 +364,23 @@ export default function MediaPage() {
     await supabase.from("media_items").update({ title: next }).eq("id", item.id);
   }
 
+  // Pinned first, then alphabetical — matches the server-side ordering.
+  const byPin = (a: MediaSection, b: MediaSection) =>
+    Number(b.pinned) - Number(a.pinned) || a.name.localeCompare(b.name);
+
+  function pinVSection(section: MediaSection) {
+    if (!supabase) return;
+    const pinned = !section.pinned;
+    setVSections((cur) =>
+      cur.map((s) => (s.id === section.id ? { ...s, pinned } : s)).sort(byPin)
+    );
+    supabase
+      .from("media_sections")
+      .update({ pinned })
+      .eq("id", section.id)
+      .then(undefined, () => {});
+  }
+
   async function addVSection(kind: "video" | "course") {
     if (!supabase) return;
     const name = (
@@ -371,16 +390,14 @@ export default function MediaPage() {
     const { data, error } = await supabase
       .from("media_sections")
       .insert({ name, kind })
-      .select("id,name,kind")
+      .select("id,name,kind,pinned")
       .single();
     if (error) {
       setError(error.message);
       return;
     }
     const sec = data as MediaSection;
-    setVSections((cur) =>
-      [...cur, sec].sort((a, b) => a.name.localeCompare(b.name))
-    );
+    setVSections((cur) => [...cur, sec].sort(byPin));
     if (kind === "video") setVActive(sec.id);
     else setCActive(sec.id);
   }
@@ -396,9 +413,7 @@ export default function MediaPage() {
     )?.trim();
     if (!name || name === section.name) return;
     setVSections((cur) =>
-      cur
-        .map((s) => (s.id === section.id ? { ...s, name } : s))
-        .sort((a, b) => a.name.localeCompare(b.name))
+      cur.map((s) => (s.id === section.id ? { ...s, name } : s)).sort(byPin)
     );
     await supabase.from("media_sections").update({ name }).eq("id", section.id);
   }
@@ -708,6 +723,10 @@ export default function MediaPage() {
                   setVActionsFor(null);
                   removeVSection(s);
                 }}
+                onPin={(s) => {
+                  setVActionsFor(null);
+                  pinVSection(s);
+                }}
                 onAdd={() => addVSection("course")}
               />
               {visibleCourses.length > 0 ? (
@@ -754,6 +773,10 @@ export default function MediaPage() {
                 onRemove={(s) => {
                   setVActionsFor(null);
                   removeVSection(s);
+                }}
+                onPin={(s) => {
+                  setVActionsFor(null);
+                  pinVSection(s);
                 }}
                 onAdd={() => addVSection("video")}
               />
@@ -808,6 +831,7 @@ function SectionTabs({
   onToggleActions,
   onRename,
   onRemove,
+  onPin,
   onAdd,
 }: {
   sections: MediaSection[];
@@ -818,6 +842,7 @@ function SectionTabs({
   onToggleActions: (id: string) => void;
   onRename: (s: MediaSection) => void;
   onRemove: (s: MediaSection) => void;
+  onPin: (s: MediaSection) => void;
   onAdd: () => void;
 }) {
   return (
@@ -847,6 +872,14 @@ function SectionTabs({
                   : "border border-border text-text-muted hover:bg-bg-sunken hover:text-text"
               }`}
             >
+              {section.pinned && (
+                <Pin
+                  size={11}
+                  className={`rotate-45 fill-current ${
+                    isActive ? "text-accent-fg/80" : "text-text-faint"
+                  }`}
+                />
+              )}
               {section.name}
               {count > 0 && (
                 <span
@@ -860,6 +893,20 @@ function SectionTabs({
             </button>
             {actionsFor === section.id && (
               <span className="absolute bottom-full left-0 z-20 mb-1 flex items-center gap-0.5 rounded-lg border border-border bg-bg-elevated px-1 py-0.5 shadow-lg">
+                <button
+                  onClick={() => onPin(section)}
+                  aria-label={section.pinned ? "Unpin section" : "Pin section"}
+                  className={`flex h-6 w-6 cursor-pointer items-center justify-center rounded hover:bg-bg-sunken ${
+                    section.pinned
+                      ? "text-accent-text"
+                      : "text-text-faint hover:text-text"
+                  }`}
+                >
+                  <Pin
+                    size={13}
+                    className={section.pinned ? "rotate-45 fill-current" : ""}
+                  />
+                </button>
                 <button
                   onClick={() => onRename(section)}
                   aria-label="Rename section"

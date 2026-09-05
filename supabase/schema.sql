@@ -82,8 +82,13 @@ create table if not exists public.media_sections (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   name text not null,
   kind text not null default 'video' check (kind in ('video', 'course')),
+  pinned boolean not null default false,
   created_at timestamptz not null default now()
 );
+
+-- Existing installs predate `pinned`; add it in place.
+alter table public.media_sections
+  add column if not exists pinned boolean not null default false;
 
 create index if not exists media_sections_user_idx
   on public.media_sections (user_id);
