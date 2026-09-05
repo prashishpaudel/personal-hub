@@ -33,6 +33,23 @@ tags: [git, tools]
 - `git diff origin/development origin/staging` — compare two remote branches
 - `git revert commitId` — undo a specific commit safely
 
+## Worktrees
+
+Check out several branches at once, each in its own folder — no stashing to switch.
+
+- `git worktree add ../project-feature feature-branch` — new worktree from an existing branch
+- `git worktree add -b feature-branch ../project-feature` — create the branch and its worktree together
+- `git worktree list` — show every worktree and the branch it holds
+- `git worktree remove ../project-feature` — delete a worktree (must be clean)
+  - `--force` to drop it with uncommitted changes
+- `git worktree prune` — clear stale entries after deleting a folder by hand
+- `git branch -d feature-branch` — the branch outlives the worktree; delete it separately
+
+Notes:
+- One branch can only be checked out in one worktree at a time
+- All worktrees share the same `.git` — commits and stashes are visible everywhere
+- Keep them outside the repo folder so tooling doesn't index them twice
+
 ---
 
 ## Merging a PR from Feature Branch to Staging

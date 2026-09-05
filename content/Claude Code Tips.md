@@ -25,6 +25,74 @@ tags: [claude, tools]
   - Example: `/compact Focus on preserving our authentication refactoring discussion. The database work is complete and can be summarized briefly.`
 - `/insights` — generate a web page showing everything about Claude Code usage
 
+## Custom Slash Commands
+
+A Markdown file becomes a command — the filename is the command name.
+
+- `.claude/commands/` — project commands, shared through the repo
+- `~/.claude/commands/` — personal commands, available in every project
+- `.claude/commands/review.md` → `/review`
+- `.claude/commands/git/sync.md` → `/git:sync` — a subfolder namespaces the command
+- `$ARGUMENTS` — everything typed after the command, as one string
+- `$1`, `$2`, … — arguments in the order you type them
+- Frontmatter (all optional): `description`, `argument-hint`, `allowed-tools`, `model`
+
+Typing:
+
+```text
+/deploy staging v2.1
+```
+
+gives:
+
+```text
+$1 → staging
+$2 → v2.1
+```
+
+Example — `.claude/commands/deploy.md`:
+
+```markdown
+---
+description: Deploy a version to an environment
+argument-hint: <environment> <version>
+---
+
+Deploy version $2 to $1. Run the test suite first, then report the result.
+```
+
+## Hooks
+
+Shell commands the harness runs automatically at fixed points. Deterministic — unlike
+asking Claude to remember a rule.
+
+- `/hooks` — configure interactively
+- Live in `settings.json` (user, project, or local) under `hooks`
+- Events: `SessionStart`, `UserPromptSubmit`, `PreToolUse` (can block), `PostToolUse`, `Stop`, `Notification`
+- `matcher` filters by tool name (`Edit|Write`, `Bash`) — omit it for events with no tool
+- The hook gets the event as JSON on stdin; exit `2` blocks the action and sends stderr back to Claude
+
+Example — format every file Claude writes:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path' | xargs npx prettier --write",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
 ## Caveman Mode
 
 - `/caveman` — enable caveman mode (simple, direct responses)
