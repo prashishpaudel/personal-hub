@@ -61,6 +61,38 @@ argument-hint: <environment> <version>
 Deploy version $2 to $1. Run the test suite first, then report the result.
 ```
 
+## Subagents
+
+A separate Claude with its own context window and system prompt. Good for wide searches
+whose file dumps you don't want filling the main conversation — only the final report
+comes back.
+
+- `.claude/agents/` — project subagents, shared through the repo
+- `~/.claude/agents/` — personal subagents, available in every project
+- One Markdown file per agent; the body is its system prompt
+- Frontmatter: `name` and `description` required, `tools` and `model` optional
+- `description` is what Claude matches on when picking an agent — phrase it as "use when …"
+- Omit `tools` to inherit every tool; list them to narrow what the agent can do
+- Ask by name ("use the code-reviewer subagent") or let Claude delegate on its own
+- The `/agents` wizard is gone — create and edit the files directly
+
+Example — `.claude/agents/code-reviewer.md`:
+
+```markdown
+---
+name: code-reviewer
+description: Use after writing code to review it for bugs and unclear naming.
+tools: Read, Grep, Glob, Bash
+model: sonnet
+---
+
+Review the diff for correctness bugs first, then clarity.
+Report each finding as `file:line` with a one-line fix.
+```
+
+Built-ins worth knowing: `Explore` (read-only fan-out search), `Plan` (implementation
+plans), `general-purpose`.
+
 ## Hooks
 
 Shell commands the harness runs automatically at fixed points. Deterministic — unlike
@@ -93,6 +125,32 @@ Example — format every file Claude writes:
 }
 ```
 
+## Important Plugins
+
+1. **Superpowers** — brainstorming and dispatching parallel agents
+2. **Context7** — MCP Server for up-to-date documentation lookup
+3. **mattpocock/skills** — grilling a plan, specs and tickets, TDD, code review
+4. **Caveman** — ultra-compressed replies, ~75% fewer output tokens (see below)
+
+## Installing Skills: Plugin vs Copy
+
+- **Plugin** — installs once, available in **every project**; auto-updates, but read-only
+  so you can't tweak a skill
+
+  ```bash
+  claude plugins install mattpocock-skills
+  ```
+
+- **Copy** — writes into **the current repo only**; yours to edit, re-run to update
+
+  ```bash
+  npx skills@latest add mattpocock/skills
+  ```
+
+- Copies land in `.claude/skills/`; put them in `~/.claude/skills/` to reuse everywhere
+- Either way, loaded on the next session start
+- Plugin skills are namespaced (`mattpocock:code-review`) — no clash with built-ins
+
 ## Caveman Mode
 
 - `/caveman` — enable caveman mode (simple, direct responses)
@@ -105,11 +163,6 @@ Example — format every file Claude writes:
 
 Use this prompt to summarize progress:
 > Let's summarize where we are. What have we accomplished, what's the current state, and what are our next steps? Put this in progress.md
-
-## Important Plugins
-
-1. **Superpowers** — brainstorming and dispatching parallel agents
-2. **Context7** — MCP Server for up-to-date documentation lookup
 
 ## File Locations
 
