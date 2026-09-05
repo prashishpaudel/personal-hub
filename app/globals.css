@@ -136,6 +136,28 @@ body {
   color: var(--text-muted);
   font-style: italic;
 }
+/* GFM tables: scroll the table itself rather than letting a wide one stretch
+   the page on a phone. */
+.prose-reader table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 1.2em 0;
+  font-size: 0.925em;
+}
+.prose-reader th,
+.prose-reader td {
+  border: 1px solid var(--border);
+  padding: 0.5em 0.75em;
+  text-align: left;
+  vertical-align: top;
+}
+.prose-reader th {
+  background: var(--bg-sunken);
+  font-weight: 600;
+  white-space: nowrap;
+}
 .prose-reader pre {
   background: var(--bg-sunken);
   border: 1px solid var(--border);

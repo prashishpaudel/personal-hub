@@ -185,10 +185,9 @@ export default function AppShell({
           (slack goes to the right) instead of centering with a left gap. */}
       <div className={collapsed ? "md:pl-[68px]" : "md:pl-60"}>
         <main
-          className={`min-h-dvh w-full px-5 pb-24 pt-6 md:px-6 md:pb-10 ${
-            // Garden runs three columns (explorer + note + outline), so it gets
-            // a wider cap than the single-column sections.
-            pathname.startsWith("/garden") ? "max-w-7xl" : "max-w-5xl"
+          className={`min-h-dvh w-full px-5 pb-24 pt-6 md:px-8 md:pb-10 lg:px-10 ${
+            // Garden note pages carry an outline column alongside the note.
+            pathname.startsWith("/garden") ? "max-w-6xl" : "max-w-5xl"
           }`}
         >
           {children}

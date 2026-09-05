@@ -209,13 +209,23 @@ export function getAllSlugs(): string[] {
   return readAll().map((n) => n.slug);
 }
 
+// The page renders the note title itself, so a leading "# Same Title" in the
+// body is a duplicate. Only strip it when it actually matches — a note whose
+// h1 says something different (a subtitle) keeps it.
+function stripEchoedTitle(body: string, title: string): string {
+  return body.replace(/^\s*#\s+(.+?)[ \t]*$/m, (full, heading: string) =>
+    heading.trim().toLowerCase() === title.trim().toLowerCase() ? "" : full
+  );
+}
+
 export async function getNote(slug: string): Promise<Note | null> {
   const notes = readAll();
   const note = notes.find((n) => n.slug === slug);
   if (!note) return null;
 
   const index = nameIndex(notes);
-  const html = String(await processor.process(preprocess(note.body, index)));
+  const body = stripEchoedTitle(note.body, note.title);
+  const html = String(await processor.process(preprocess(body, index)));
 
   // Backlinks: every other note whose outgoing links include this slug.
   const backlinks = notes
