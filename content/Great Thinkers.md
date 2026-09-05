@@ -19,9 +19,9 @@ Understand:
 
 ---
 
-# Layer 1: Human Nature & Meaning
+## Layer 1: Human Nature & Meaning
 
-## Fyodor Dostoevsky
+### Fyodor Dostoevsky
 
 **Read**
 
@@ -33,7 +33,7 @@ Understand:
 * Why do people act against their interests?
 * Is reason enough to guide society?
 
-## Friedrich Nietzsche
+### Friedrich Nietzsche
 
 **Read**
 
@@ -45,7 +45,7 @@ Understand:
 * Where do values come from?
 * What happens when traditional beliefs collapse?
 
-## Carl Jung
+### Carl Jung
 
 **Read**
 
@@ -58,9 +58,9 @@ Understand:
 
 ---
 
-# Layer 2: Society, Power & Institutions
+## Layer 2: Society, Power & Institutions
 
-## Karl Marx
+### Karl Marx
 
 **Read**
 
@@ -72,7 +72,7 @@ Understand:
 * Who owns productive assets?
 * How does capital accumulate?
 
-## Franz Kafka
+### Franz Kafka
 
 **Read**
 
@@ -87,7 +87,7 @@ Understand:
 * What happens when power becomes impersonal?
 * How do institutions alienate individuals from work, family, justice, and meaning?
 
-## Max Weber
+### Max Weber
 
 **Read**
 
@@ -98,7 +98,7 @@ Understand:
 * Why did capitalism emerge where it did?
 * How do culture and institutions shape economics?
 
-## Michel Foucault
+### Michel Foucault
 
 **Read**
 
@@ -111,21 +111,21 @@ Understand:
 
 ---
 
-# Layer 3: Civilization & History
+## Layer 3: Civilization & History
 
-## Will Durant
+### Will Durant
 
 **Read**
 
 * The Lessons of History
 
-## Yuval Noah Harari
+### Yuval Noah Harari
 
 **Read**
 
 * Sapiens
 
-## Jared Diamond
+### Jared Diamond
 
 **Read**
 
@@ -139,9 +139,9 @@ Understand:
 
 ---
 
-# Layer 4: Economics & Capitalism
+## Layer 4: Economics & Capitalism
 
-## Adam Smith
+### Adam Smith
 
 **Read**
 
@@ -152,7 +152,7 @@ Understand:
 * Why do markets create wealth?
 * Why does specialization matter?
 
-## John Maynard Keynes
+### John Maynard Keynes
 
 **Read**
 
@@ -163,7 +163,7 @@ Understand:
 * Why do recessions happen?
 * Why can't markets always self-correct?
 
-## Thomas Piketty
+### Thomas Piketty
 
 **Read**
 
@@ -174,7 +174,7 @@ Understand:
 * Why does wealth concentrate?
 * What does inequality do to societies?
 
-## Yanis Varoufakis
+### Yanis Varoufakis
 
 **Read**
 
@@ -188,9 +188,9 @@ Understand:
 
 ---
 
-# Layer 5: Development & Nations
+## Layer 5: Development & Nations
 
-## Daron Acemoglu & James Robinson
+### Daron Acemoglu & James Robinson
 
 **Read**
 
@@ -202,7 +202,7 @@ Understand:
 * Why do some nations become prosperous?
 * Why do institutions matter?
 
-## Joe Studwell
+### Joe Studwell
 
 **Read**
 
@@ -223,15 +223,15 @@ Understand:
 
 ---
 
-# Layer 6: Synthesis
+## Layer 6: Synthesis
 
-## Albert Camus
+### Albert Camus
 
 **Focus**
 
 * Meaning in an indifferent universe
 
-## Erich Fromm
+### Erich Fromm
 
 **Read**
 
@@ -241,7 +241,7 @@ Understand:
 
 * Freedom, psychology, and capitalism
 
-## Viktor Frankl
+### Viktor Frankl
 
 **Read**
 
@@ -253,7 +253,7 @@ Understand:
 
 ---
 
-# Core 10 Thinkers
+## Core 10 Thinkers
 
 1. Dostoevsky
 2. Nietzsche
@@ -269,7 +269,7 @@ Understand:
 
 ---
 
-# Core Questions
+## Core Questions
 
 ### Human Nature
 
@@ -307,6 +307,6 @@ Understand:
 
 ---
 
-# The Big Question
+## The Big Question
 
 How do minds create societies, societies create institutions, institutions create economies, economies shape civilizations, and how does an individual find meaning within that process?

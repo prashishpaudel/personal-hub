@@ -19,8 +19,15 @@ export type NoteMeta = {
   excerpt: string;
 };
 
+export type Heading = {
+  id: string;
+  text: string;
+  level: 2 | 3;
+};
+
 export type Note = NoteMeta & {
   html: string;
+  headings: Heading[];
   backlinks: NoteMeta[];
 };
 
@@ -135,6 +142,46 @@ function preprocess(body: string, index: Map<string, string>): string {
     });
 }
 
+// Pull the h2/h3 outline out of the *rendered* HTML rather than the Markdown
+// source: rehypeSlug has already assigned the ids we need to link to, and a
+// "# comment" inside a fenced code block is a <pre> by this point, so it can't
+// be mistaken for a heading. h1 is the note title, rendered separately.
+const HEADING_RE = /<h([23]) id="([^"]+)"[^>]*>(.*?)<\/h[23]>/gs;
+
+// rehype-stringify escapes heading text (& becomes &#x26;), and React renders
+// a string as-is, so the entities have to come back out here.
+const NAMED: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+};
+
+function decodeEntities(text: string): string {
+  return text.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (match, code: string) => {
+    if (code[0] !== "#") return NAMED[code.toLowerCase()] ?? match;
+    const num =
+      code[1] === "x" || code[1] === "X"
+        ? parseInt(code.slice(2), 16)
+        : parseInt(code.slice(1), 10);
+    // Out-of-range code points make fromCodePoint throw; leave those alone.
+    return Number.isNaN(num) || num > 0x10ffff ? match : String.fromCodePoint(num);
+  });
+}
+
+function extractHeadings(html: string): Heading[] {
+  const out: Heading[] = [];
+  for (const m of html.matchAll(HEADING_RE)) {
+    const text = decodeEntities(m[3].replace(/<[^>]*>/g, "")).trim();
+    if (text) {
+      out.push({ id: m[2], text, level: Number(m[1]) as 2 | 3 });
+    }
+  }
+  return out;
+}
+
 const processor = unified()
   .use(remarkParse)
   .use(remarkGfm)
@@ -176,5 +223,5 @@ export async function getNote(slug: string): Promise<Note | null> {
     .map(toMeta)
     .sort((a, b) => a.title.localeCompare(b.title));
 
-  return { ...toMeta(note), html, backlinks };
+  return { ...toMeta(note), html, headings: extractHeadings(html), backlinks };
 }

@@ -184,7 +184,13 @@ export default function AppShell({
       {/* Main column — content is left-aligned so it sits next to the rail
           (slack goes to the right) instead of centering with a left gap. */}
       <div className={collapsed ? "md:pl-[68px]" : "md:pl-60"}>
-        <main className="min-h-dvh w-full max-w-5xl px-5 pb-24 pt-6 md:px-6 md:pb-10">
+        <main
+          className={`min-h-dvh w-full px-5 pb-24 pt-6 md:px-6 md:pb-10 ${
+            // Garden runs three columns (explorer + note + outline), so it gets
+            // a wider cap than the single-column sections.
+            pathname.startsWith("/garden") ? "max-w-7xl" : "max-w-5xl"
+          }`}
+        >
           {children}
         </main>
       </div>
