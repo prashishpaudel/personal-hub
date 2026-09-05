@@ -38,7 +38,7 @@ export default async function NotePage({
   if (!note) notFound();
 
   return (
-    <div className="flex gap-10 xl:gap-12">
+    <div className="flex gap-8 xl:gap-12">
       <div className="min-w-0 max-w-[780px] flex-1">
         {/* Outside the panel, and sticky — a long cheatsheet would otherwise
             strand you with no way back to the list. */}

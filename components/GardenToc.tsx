@@ -64,7 +64,7 @@ export default function GardenToc({ headings }: { headings: Heading[] }) {
   }
 
   return (
-    <aside className="sticky top-6 ml-auto hidden max-h-[calc(100dvh-3rem)] w-56 shrink-0 flex-col gap-3 self-start xl:flex">
+    <aside className="sticky top-6 ml-auto hidden max-h-[calc(100dvh-3rem)] w-48 shrink-0 flex-col gap-3 self-start lg:flex xl:w-56">
       <p className="flex items-center gap-1.5 px-2.5 text-xs font-semibold uppercase tracking-wide text-text-faint">
         <List size={13} /> On this page
       </p>
