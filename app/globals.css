@@ -82,9 +82,12 @@ body {
   min-height: 100dvh;
 }
 
+/* Selection inverts against the page: ink block in light, cream block in
+   dark. --accent/--accent-fg already flip per theme, so this needs no
+   dark-mode override of its own. */
 ::selection {
-  background: var(--accent-soft);
-  color: var(--accent-text);
+  background: var(--accent);
+  color: var(--accent-fg);
 }
 
 /* Article reader typography */
