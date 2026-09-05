@@ -8,6 +8,7 @@ tags: [claude, tools]
 
 ## Session Management
 
+- `claude --continue` (`-c`) — jump straight back into the most recent session in this folder
 - `claude --resume` — browse, pick, and resume past sessions
 - `/resume` — same as `claude --resume` but from inside a session
 - `/clear` — discard the current conversation and context
