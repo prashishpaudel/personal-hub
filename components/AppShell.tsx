@@ -58,6 +58,11 @@ export default function AppShell({
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
+    // Android reads the status-bar icon colour off this; left stale it puts
+    // white icons on the cream bar.
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", theme === "dark" ? "#1a1814" : "#f7f4ef");
     if (mounted) window.localStorage.setItem(themeKey, theme);
   }, [theme, mounted]);
 

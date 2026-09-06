@@ -26,19 +26,19 @@ export const metadata: Metadata = {
   },
 };
 
-// The manifest carries a single theme_color, which left dark-mode users with a
-// cream status bar. The meta tag takes a media query, so the installed app's
-// chrome can follow the palette.
+// A single value, deliberately not a prefers-color-scheme pair: the palette is
+// chosen in localStorage, not by the system, so a media query would disagree
+// with what is actually on screen. Android derives the status-bar icon colour
+// from this, and a mismatch renders white icons on the cream bar. The script
+// below rewrites it to match the real theme before first paint.
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f7f4ef" },
-    { media: "(prefers-color-scheme: dark)", color: "#1a1814" },
-  ],
+  themeColor: "#f7f4ef",
 };
 
-// Set theme before paint to avoid a flash of the wrong palette.
+// Set theme before paint to avoid a flash of the wrong palette, and keep the
+// status bar in step with it.
 const themeScript = `
-(function(){try{var t=localStorage.getItem('personal-hub:theme');if(!t){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme='light';}})();
+(function(){try{var t=localStorage.getItem('personal-hub:theme');if(!t){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.dataset.theme=t;var m=document.querySelector('meta[name="theme-color"]');if(!m){m=document.createElement('meta');m.setAttribute('name','theme-color');document.head.appendChild(m);}m.setAttribute('content',t==='dark'?'#1a1814':'#f7f4ef');}catch(e){document.documentElement.dataset.theme='light';}})();
 `;
 
 export default function RootLayout({
