@@ -49,9 +49,14 @@ export default function LoginPage() {
     <main className="flex min-h-dvh items-center justify-center px-5">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent text-lg font-semibold text-accent-fg">
-            ph
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.svg"
+            alt=""
+            width={56}
+            height={56}
+            className="mb-4 h-14 w-14 rounded-2xl"
+          />
           <h1 className="font-display text-2xl font-semibold tracking-tight">
             Personal Hub
           </h1>
