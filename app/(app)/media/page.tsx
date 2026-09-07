@@ -2,6 +2,22 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
   Plus,
   Trash2,
   Loader2,
@@ -13,6 +29,7 @@ import {
   ChevronDown,
   RefreshCw,
   Pin,
+  GripVertical,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import {
@@ -224,8 +241,9 @@ export default function MediaPage() {
     const { data } = await supabase
       .from("media_items")
       .select(
-        "id,type,url,title,is_course,section_id,progress_seconds,progress_video_id"
+        "id,type,url,title,is_course,section_id,progress_seconds,progress_video_id,position"
       )
+      .order("position", { ascending: true })
       .order("created_at", { ascending: false });
     const rows = (data as Item[]) ?? [];
     setItems(rows);
@@ -298,6 +316,9 @@ export default function MediaPage() {
       }
     }
 
+    const top = items.length
+      ? Math.min(...items.map((i) => i.position)) - 1
+      : 0;
     const { data, error } = await supabase
       .from("media_items")
       .insert({
@@ -305,6 +326,7 @@ export default function MediaPage() {
         url: url.trim(),
         title: finalTitle,
         is_course: makeCourse,
+        position: top,
         // Videos/courses inherit their tab's active section.
         section_id:
           type === "youtube"
@@ -469,6 +491,57 @@ export default function MediaPage() {
       .then(undefined, () => {});
   }
 
+  // Reordering the array would reorder the DOM, and moving an <iframe> makes
+  // the browser blank it — the embed goes white and the YouTube player loses
+  // the node it was bound to. So the DOM order stays fixed (by id) and the
+  // visual order is done with CSS `order` instead.
+  const domOrder = useCallback(
+    (list: Item[]) => [...list].sort((a, b) => a.id.localeCompare(b.id)),
+    []
+  );
+  const rankOf = useCallback(
+    (list: Item[]) => new Map(list.map((i, n) => [i.id, n])),
+    []
+  );
+
+  const dragSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 6 } })
+  );
+
+  // Reorder within one tab; the dragged card takes the midpoint of its new
+  // neighbours so only that row needs writing back.
+  function makeDragEnd(group: Item[]) {
+    return (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id || !supabase) return;
+      const from = group.findIndex((i) => i.id === active.id);
+      const to = group.findIndex((i) => i.id === over.id);
+      if (from < 0 || to < 0) return;
+      const next = arrayMove(group, from, to);
+      const prev = next[to - 1]?.position;
+      const after = next[to + 1]?.position;
+      let position: number;
+      if (prev === undefined && after === undefined) position = 0;
+      else if (prev === undefined) position = after! - 1;
+      else if (after === undefined) position = prev + 1;
+      else position = (prev + after) / 2;
+
+      setItems((cur) => {
+        const updated = cur
+          .map((i) => (i.id === active.id ? { ...i, position } : i))
+          .sort((a, b) => a.position - b.position);
+        setMediaCache(updated);
+        return updated;
+      });
+      supabase
+        .from("media_items")
+        .update({ position })
+        .eq("id", String(active.id))
+        .then(undefined, () => {});
+    };
+  }
+
   async function moveToSection(item: Item, sectionId: string | null) {
     if (!supabase) return;
     setItems((cur) => {
@@ -507,9 +580,19 @@ export default function MediaPage() {
     if (!supabase) return;
     setBusy(true);
     const existing = new Set(items.map((i) => i.url));
+    // Give each import its own slot below the current top, otherwise they all
+    // land on position 0 and the order between them is arbitrary.
+    const bottom = items.length
+      ? Math.max(...items.map((i) => i.position)) + 1
+      : 0;
     const toAdd = defaultMedia
       .filter((m) => !existing.has(m.url))
-      .map((m) => ({ type: m.type, url: m.url, title: m.title ?? null }));
+      .map((m, i) => ({
+        type: m.type,
+        url: m.url,
+        title: m.title ?? null,
+        position: bottom + i,
+      }));
     if (toAdd.length > 0) await supabase.from("media_items").insert(toAdd);
     setBusy(false);
     await load();
@@ -730,10 +813,20 @@ export default function MediaPage() {
                 onAdd={() => addVSection("course")}
               />
               {visibleCourses.length > 0 ? (
+                <DndContext
+                  sensors={dragSensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={makeDragEnd(visibleCourses)}
+                >
+                <SortableContext
+                  items={visibleCourses.map((i) => i.id)}
+                  strategy={rectSortingStrategy}
+                >
                 <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-                  {visibleCourses.map((item) => (
+                  {domOrder(visibleCourses).map((item) => (
                     <CourseCard
                       key={item.id}
+                      order={rankOf(visibleCourses).get(item.id) ?? 0}
                       item={item}
                       lessons={lessonsByCourse.get(item.id) ?? []}
                       onToggle={toggleLesson}
@@ -746,6 +839,8 @@ export default function MediaPage() {
                     />
                   ))}
                 </div>
+                </SortableContext>
+                </DndContext>
               ) : (
                 <EmptyTab tab="courses" />
               )}
@@ -782,10 +877,20 @@ export default function MediaPage() {
               />
 
               {visibleVideos.length > 0 ? (
+                <DndContext
+                  sensors={dragSensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={makeDragEnd(visibleVideos)}
+                >
+                <SortableContext
+                  items={visibleVideos.map((i) => i.id)}
+                  strategy={rectSortingStrategy}
+                >
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  {visibleVideos.map((item) => (
+                  {domOrder(visibleVideos).map((item) => (
                     <MediaCard
                       key={item.id}
+                      order={rankOf(visibleVideos).get(item.id) ?? 0}
                       item={item}
                       onRemove={removeItem}
                       onRename={renameItem}
@@ -795,15 +900,27 @@ export default function MediaPage() {
                     />
                   ))}
                 </div>
+                </SortableContext>
+                </DndContext>
               ) : (
                 <EmptyTab tab="videos" />
               )}
             </>
           ) : audio.length > 0 ? (
+            <DndContext
+              sensors={dragSensors}
+              collisionDetection={closestCenter}
+              onDragEnd={makeDragEnd(audio)}
+            >
+            <SortableContext
+              items={audio.map((i) => i.id)}
+              strategy={rectSortingStrategy}
+            >
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {audio.map((item) => (
+              {domOrder(audio).map((item) => (
                 <MediaCard
                   key={item.id}
+                  order={rankOf(audio).get(item.id) ?? 0}
                   item={item}
                   onRemove={removeItem}
                   onRename={renameItem}
@@ -812,6 +929,8 @@ export default function MediaPage() {
                 />
               ))}
             </div>
+            </SortableContext>
+            </DndContext>
           ) : (
             <EmptyTab tab="podcasts" />
           )}
@@ -948,6 +1067,7 @@ function EmptyTab({ tab }: { tab: Tab }) {
 
 function CourseCard({
   item,
+  order,
   lessons,
   onToggle,
   onRemove,
@@ -958,6 +1078,7 @@ function CourseCard({
   onRefresh,
 }: {
   item: Item;
+  order: number;
   lessons: Lesson[];
   onToggle: (id: string, watched: boolean) => void;
   onRemove: (id: string) => void;
@@ -968,6 +1089,10 @@ function CourseCard({
   onRefresh?: (item: Item) => Promise<void>;
 }) {
   const [syncing, setSyncing] = useState(false);
+  // The card is mostly iframe, which swallows pointer events, so reordering
+  // has to go through an explicit handle.
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: item.id });
   const sectionPicker = sections && sections.length > 0 && onSection && (
     <select
       value={item.section_id ?? ""}
@@ -1013,7 +1138,13 @@ function CourseCard({
   );
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-bg-elevated">
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, order }}
+      className={`flex flex-col overflow-hidden rounded-2xl border border-border bg-bg-elevated ${
+        isDragging ? "z-10 opacity-80 shadow-lg" : ""
+      }`}
+    >
       <div className="aspect-video">
         <iframe
           ref={iframeRef}
@@ -1027,6 +1158,15 @@ function CourseCard({
       </div>
 
       <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
+      <button
+        {...attributes}
+        {...listeners}
+        aria-label="Drag to reorder"
+        title="Drag to reorder"
+        className="flex h-8 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded-lg text-text-faint transition-colors hover:text-text-muted active:cursor-grabbing"
+      >
+        <GripVertical size={14} />
+      </button>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">
             {item.title || "Course"}
@@ -1148,6 +1288,7 @@ function CourseCard({
 
 function MediaCard({
   item,
+  order,
   onRemove,
   onRename,
   onProgress,
@@ -1156,6 +1297,7 @@ function MediaCard({
   audio = false,
 }: {
   item: Item;
+  order: number;
   onRemove: (id: string) => void;
   onRename: (item: Item) => void;
   onProgress?: (item: Item, videoId: string | null, seconds: number) => void;
@@ -1163,6 +1305,8 @@ function MediaCard({
   onSection?: (item: Item, sectionId: string | null) => void;
   audio?: boolean;
 }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: item.id });
   const isYt = item.type === "youtube" && !audio;
   // Freeze the src at mount so background progress saves never reload it.
   const [src] = useState(() =>
@@ -1173,7 +1317,13 @@ function MediaCard({
   );
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-bg-elevated">
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, order }}
+      className={`overflow-hidden rounded-2xl border border-border bg-bg-elevated ${
+        isDragging ? "z-10 opacity-80 shadow-lg" : ""
+      }`}
+    >
       {audio ? (
         <iframe
           src={src}
@@ -1196,6 +1346,15 @@ function MediaCard({
         </div>
       )}
       <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
+      <button
+        {...attributes}
+        {...listeners}
+        aria-label="Drag to reorder"
+        title="Drag to reorder"
+        className="flex h-8 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded-lg text-text-faint transition-colors hover:text-text-muted active:cursor-grabbing"
+      >
+        <GripVertical size={14} />
+      </button>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">
             {item.title || (audio ? "Podcast" : "Video")}

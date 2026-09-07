@@ -129,8 +129,23 @@ create table if not exists public.media_items (
   section_id uuid references public.media_sections (id) on delete set null,
   progress_seconds integer not null default 0, -- resume position (YouTube)
   progress_video_id text, -- last-played lesson within a course
+  position double precision not null default 0, -- manual order within a tab
   created_at timestamptz not null default now()
 );
+
+-- Existing installs predate `position`; add it, then seed it from the order
+-- rows are already displayed in (newest first) so nothing appears to move.
+alter table public.media_items
+  add column if not exists position double precision not null default 0;
+
+update public.media_items m
+set position = s.rn
+from (
+  select id,
+         row_number() over (partition by user_id order by created_at desc) as rn
+  from public.media_items
+) s
+where m.id = s.id and m.position = 0;
 
 create index if not exists media_items_user_idx
   on public.media_items (user_id, created_at desc);

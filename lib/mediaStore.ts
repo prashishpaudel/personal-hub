@@ -11,6 +11,7 @@ export type MediaRow = {
   section_id: string | null;
   progress_seconds: number;
   progress_video_id: string | null;
+  position: number;
 };
 
 export type MediaSection = {
