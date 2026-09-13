@@ -8,9 +8,12 @@ import type { NoteMeta } from "@/lib/garden";
 function formatDate(date: string) {
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return "";
+  // Frontmatter dates are calendar days, not instants — format in UTC so an
+  // ISO day never renders as the day before.
   return new Intl.DateTimeFormat("en", {
     month: "short",
     day: "numeric",
+    timeZone: "UTC",
   }).format(d);
 }
 

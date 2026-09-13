@@ -60,6 +60,23 @@ function plainExcerpt(md: string, len = 160): string {
   return text.length > len ? `${text.slice(0, len).trim()}…` : text;
 }
 
+// YAML parses an unquoted date into a Date object, and String()-ing that gives
+// "Sun Jun 21 2026 ..." — which sorts by weekday name and renders a day early
+// in negative-offset timezones. Normalise to a plain ISO day instead.
+function normalizeDate(value: unknown): string | null {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime())
+      ? null
+      : value.toISOString().slice(0, 10);
+  }
+  const raw = String(value).trim();
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime())
+    ? raw // keep whatever was written; formatDate falls back to showing it as-is
+    : parsed.toISOString().slice(0, 10);
+}
+
 let cache: RawNote[] | null = null;
 
 function readAll(): RawNote[] {
@@ -89,7 +106,7 @@ function readAll(): RawNote[] {
       name,
       title,
       tags: Array.isArray(data.tags) ? data.tags.map(String) : [],
-      date: data.date ? String(data.date) : null,
+      date: normalizeDate(data.date),
       body: content,
     });
   }
@@ -199,10 +216,17 @@ function toMeta(n: RawNote): NoteMeta {
   };
 }
 
+// Newest first, undated notes last, ties broken alphabetically. The garden
+// list and the dashboard widget both read this, so the order is defined once.
 export function getAllNotes(): NoteMeta[] {
   return readAll()
     .map(toMeta)
-    .sort((a, b) => a.title.localeCompare(b.title));
+    .sort((a, b) => {
+      if (a.date && b.date) return b.date.localeCompare(a.date);
+      if (a.date) return -1;
+      if (b.date) return 1;
+      return a.title.localeCompare(b.title);
+    });
 }
 
 export function getAllSlugs(): string[] {

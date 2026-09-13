@@ -18,14 +18,7 @@ function greeting() {
 }
 
 export default function Home() {
-  const gardenNotes = [...getAllNotes()]
-    .sort((a, b) => {
-      if (a.date && b.date) return b.date.localeCompare(a.date);
-      if (a.date) return -1;
-      if (b.date) return 1;
-      return a.title.localeCompare(b.title);
-    })
-    .slice(0, 6);
+  const gardenNotes = getAllNotes().slice(0, 6);
 
   return (
     <div className="space-y-10">
