@@ -13,6 +13,20 @@ tags: [claude, tools]
 3. **mattpocock/skills** — grilling a plan, specs and tickets, TDD, code review
 4. **Caveman** — ultra-compressed replies, ~75% fewer output tokens (see below)
 
+## Code Review
+
+- `/code-review` — review the working diff for bugs and cleanups
+- `low` / `medium` — fewer, high-confidence findings; `high` / `max` — broader, may include uncertain ones
+- `ultra` — deep multi-agent review in the cloud (billed, you trigger it)
+- Omit the level and it reuses the one you typed last
+- Target a PR number, branch, or path instead of the diff: `/code-review low HEAD~1..HEAD`
+- `--fix` applies findings to the working tree; `--comment` posts them as inline PR comments
+- A clean tree means nothing to review — commit first, then pass a target
+
+`REVIEW.md` at the repo root tailors Code Review to your repo: the agents that find and
+verify findings get it alongside the default guidance, and the ones that rank and report
+consult it when settling severity.
+
 ## Session Management
 
 - `claude --continue` (`-c`) — jump straight back into the most recent session in this folder
