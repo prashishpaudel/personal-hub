@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { FileText, Search } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowUpDown, Check, FileText, Search } from "lucide-react";
 import type { NoteMeta } from "@/lib/garden";
 import {
   getCachedPrefs,
@@ -37,6 +37,25 @@ export default function GardenList({ notes }: { notes: NoteMeta[] }) {
   const [sort, setSort] = useState<GardenSort>(
     () => getCachedPrefs()?.gardenSort ?? "recent"
   );
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
+
+  // Close the menu on an outside tap, same as the section menus elsewhere.
+  useEffect(() => {
+    if (!sortOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (!sortRef.current?.contains(e.target as Node)) setSortOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSortOpen(false);
+    };
+    window.addEventListener("pointerdown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [sortOpen]);
 
   useEffect(() => {
     loadPrefs()
@@ -48,6 +67,7 @@ export default function GardenList({ notes }: { notes: NoteMeta[] }) {
 
   function pickSort(next: GardenSort) {
     setSort(next);
+    setSortOpen(false);
     savePref("gardenSort", next).catch(() => {
       /* keep the local choice even if the write fails */
     });
@@ -81,21 +101,46 @@ export default function GardenList({ notes }: { notes: NoteMeta[] }) {
         />
       </label>
 
-      <div className="flex items-center justify-end gap-1">
-        {SORTS.map((s) => (
-          <button
-            key={s.key}
-            onClick={() => pickSort(s.key)}
-            aria-pressed={sort === s.key}
-            className={`cursor-pointer rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
-              sort === s.key
-                ? "bg-accent-soft text-accent-text"
-                : "text-text-faint hover:bg-bg-sunken hover:text-text-muted"
-            }`}
+      <div ref={sortRef} className="relative flex justify-end">
+        <button
+          onClick={() => setSortOpen((v) => !v)}
+          aria-label="Sort notes"
+          aria-haspopup="menu"
+          aria-expanded={sortOpen}
+          title={`Sorted by ${sort === "name" ? "name" : "recent"}`}
+          className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg transition-colors ${
+            sortOpen
+              ? "bg-bg-sunken text-text"
+              : "text-text-faint hover:bg-bg-sunken hover:text-text-muted"
+          }`}
+        >
+          <ArrowUpDown size={15} />
+        </button>
+
+        {sortOpen && (
+          <div
+            role="menu"
+            className="absolute right-0 top-full z-20 mt-1 w-36 overflow-hidden rounded-xl border border-border bg-bg-elevated shadow-lg"
           >
-            {s.label}
-          </button>
-        ))}
+            {SORTS.map((s) => (
+              <button
+                key={s.key}
+                role="menuitemradio"
+                aria-checked={sort === s.key}
+                onClick={() => pickSort(s.key)}
+                className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-bg-sunken"
+              >
+                <Check
+                  size={14}
+                  className={`shrink-0 ${
+                    sort === s.key ? "text-accent-text" : "text-transparent"
+                  }`}
+                />
+                {s.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {filtered.length === 0 ? (
