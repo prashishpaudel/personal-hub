@@ -459,3 +459,34 @@ drop policy if exists "Owner can delete stickies" on public.sticky_notes;
 create policy "Owner can delete stickies"
   on public.sticky_notes for delete to authenticated
   using (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------------
+-- User preferences
+--
+-- One row per user, holding a JSON blob rather than a column per setting, so
+-- adding a preference later needs no migration.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.user_prefs (
+  user_id uuid primary key default auth.uid() references auth.users (id) on delete cascade,
+  prefs jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.user_prefs enable row level security;
+
+drop policy if exists "Owner can read prefs" on public.user_prefs;
+create policy "Owner can read prefs"
+  on public.user_prefs for select to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "Owner can insert prefs" on public.user_prefs;
+create policy "Owner can insert prefs"
+  on public.user_prefs for insert to authenticated
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Owner can update prefs" on public.user_prefs;
+create policy "Owner can update prefs"
+  on public.user_prefs for update to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
